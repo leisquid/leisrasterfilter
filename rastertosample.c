@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     unsigned            y;          /* 当前行 */
     unsigned char       *line;      /* 行缓冲 */
 
-    sleep(30);      // Li Tianyi
+    sleep(30);      // sleep to make it attachable
 
     /* 常规驱动初始化操作。 */
     if ( ( ppd = Initialize(argc, argv, &job) ) == NULL ) {
