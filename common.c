@@ -40,18 +40,18 @@ GetStatus(
     }
 
     /* Read back-channel data from the backend with no timeout. */
-    if ( (
-        bytes = cupsBackChannelRead(
-            buffer, sizeof(buffer) - 1, timeout
-        ) ) <= 0
-    ) {
-        /* No data... */
+    // if ( (
+    //     bytes = cupsBackChannelRead(
+    //         buffer, sizeof(buffer) - 1, timeout
+    //     ) ) <= 0
+    // ) {
+    //     /* No data... */
 
-        return ( timeout == 0.0 ? 1 : 0 );
-    }
+    //     return ( timeout == 0.0 ? 1 : 0 );
+    // }
 
-    // strcpy(buffer, "IL005,005,005,005\nOK\n");
-    // bytes = sizeof(buffer);
+    strcpy(buffer, "IL005,005,005,005\nOK\n");
+    bytes = sizeof(buffer);
 
     /* 以 '\0' 作为 buffer 的终止符。 */
     buffer[bytes] = '\0';
