@@ -40,12 +40,12 @@ int main(int argc, char *argv[]) {
     unsigned            y;          /* 当前行 */
     unsigned char       *line;      /* 行缓冲 */
 
-    sleep(30);      // sleep to make it attachable
+    // sleep(30);      // sleep to make it attachable
 
     /* 常规驱动初始化操作。 */
     if ( ( ppd = Initialize(argc, argv, &job) ) == NULL ) {
         LogMessage("WARNING", "Initialization failed");
-        // return 1;
+        // return EXIT_FAILURE;
     }
 
     /* 注册一个信号处理器。 */
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 
     /* 准备打印任务。 */
     if ( ! Setup(ppd, &job) ) {
-        return 1;
+        return EXIT_FAILURE;
     }
 
     /* 打开 raster 流。 */
@@ -64,8 +64,9 @@ int main(int argc, char *argv[]) {
     } else {
         fd = 0;
     }
+    ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
 
-    /* Process pages as needed. */
+    /* 处理页面。 */
     while ( cupsRasterReadHeader2(ras, &header) ) {
         /* 检查是否有任务取消。 */
         if ( CancelJob ) {
@@ -99,7 +100,7 @@ int main(int argc, char *argv[]) {
 
             /* 显示进度。 */
             if ( ( y & 128 ) == 0 ) {
-                fprintf(stdout, "++ Printing page %d, %.0f%% completed", page, (100.0 * y / header.cupsHeight));
+                fprintf(stdout, "++ Printing page %d, %.0f%% completed\n", page, (100.0 * y / header.cupsHeight));
                 puts("LEVELS");
                 fflush(stdout);
             }
@@ -137,10 +138,10 @@ int main(int argc, char *argv[]) {
     /* 显示最终状态。 */
     if ( page == 0 ) {
         LogMessage("ERROR", "No pages found!");
-        return 1;
+        return EXIT_FAILURE;
     } else {
         LogMessage("INFO", "Ready to print.");
-        return 0;
+        return EXIT_SUCCESS;
     }
 }
 

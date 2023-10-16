@@ -50,7 +50,7 @@ GetStatus(
     //     return ( timeout == 0.0 ? 1 : 0 );
     // }
 
-    strcpy(buffer, "IL005,005,005,005\nOK\n");
+    strcpy(buffer, "IL999,999,999,999\nOK\n");
     bytes = sizeof(buffer);
 
     /* 以 '\0' 作为 buffer 的终止符。 */
@@ -162,7 +162,7 @@ GetStatus(
             fputs("STATE: -media-low-report\n", stderr);
         } else {
             fprintf(stderr, "DEBUG: Unknown status \"%s\"!\n", start);
-            return ( 0 );
+            return  0 ;
         }
     }
 
@@ -177,22 +177,22 @@ GetStatus(
 ppd_file_t                  /* 输出：用于打印机的 PPD 文件 */
 *Initialize(
     int         argc,
-    char *argv[],
-    job_data_t *job        /* 输入：任务数据 */
+    char        *argv[],
+    job_data_t  *job        /* 输入：任务数据 */
 ) {
-    ppd_file_t *ppd;            /* 用于打印机的 PPD 文件 */
+    ppd_file_t  *ppd;       /* 用于打印机的 PPD 文件 */
     int i;
 
     /* 检查命令行参数个数。
      * if ( argc < 6 || argc > 7 )
      */
     if ( argc != 7 ) {
-        //                    0  1    2     3   4 5   6
         LogMessage("ERROR", "Arguments wrong");
         fprintf(stderr, "argc = %d\n", argc);
         for ( i = 0; i < argc; i ++ ) {
             fprintf(stderr, "argv[%d] = %s\n", i, argv[i]);
         }
+        //                    0  1    2     3   4 5  6
         fprintf(stderr, "用法：%s 任务 用户名 标题 选项 [文件名]\n", argv[0]);
         return NULL;
     }

@@ -16,6 +16,9 @@
  * <https://www.gnu.org/licenses/agpl-3.0.txt>.
  */
 
+#ifndef __LEISRASTERFILTER_SAMPLE_H
+#define __LEISRASTERFILTER_SAMPLE_H
+
 #include <cups/cups.h>
 #include <cups/ppd.h>
 #include <string.h>
@@ -24,7 +27,7 @@
 #include <fcntl.h>
 
 /* 
- * Job data...
+ * 任务数据。
  */
 
 typedef struct {
@@ -38,3 +41,5 @@ typedef struct {
 extern int          GetStatus(ppd_file_t *ppd, double timeout);
 extern ppd_file_t   *Initialize(int argc, char *argv[], job_data_t *job);
 extern void         LogMessage(char *prefix, char *content);
+
+#endif
