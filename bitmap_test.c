@@ -25,12 +25,13 @@ int main(int argc, char *argv[]) {
     FILE *fp = NULL;
     bitmap_24bit_pixel pixel;
 
-    const int width = 2;
-    const int height = 2;
+    const unsigned int width = 81;
+    const unsigned int height = 81;
     bitmap_24bit_pixel pixels[width * height];
 
     int index;
 
+    // printf("%ld\n", sizeof(bitmap_file_header));
 
     init_24bit_header(&file_header, &info_header, width, height);
 
@@ -42,7 +43,9 @@ int main(int argc, char *argv[]) {
 
     fp = fopen("test.bmp", "wb");
 
-    
+    if ( bitmap_24bit_write(file_header, info_header, pixels, fp) != FUNCTION_SUCCESS ) {
+        log_error("ERROR", "File writing failure!");
+    }
 
     fclose(fp);
 

@@ -8,6 +8,12 @@
 
 部分代码参考 [fruitsamples/SampleRaster](https://github.com/fruitsamples/SampleRaster)。
 
+## 编译
+
+```sh
+gcc -g `cups-config --cflags` ./rastertosample.c ./common.c `cups-config --libs` -o ./rastertosample
+```
+
 ## 澄清
 
 为避免误会，我在这里澄清一下，我在本仓库中对于此次 README.md 的提交和以往提交的 tag 没有暗指或针对其他组织或个人。
@@ -29,3 +35,5 @@ Leisquid Li
 2023.10.10
 
 一编于 23.10.16
+
+二编于 23.10.17
