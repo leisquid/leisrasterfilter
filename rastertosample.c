@@ -20,7 +20,7 @@
 #include <cups/raster.h>
 #include <signal.h>
 
-static int CancelJob = 0;           /* 设为 1 时取消当前任务 */
+static int  CancelJob = 0;          /* 设为 1 时取消当前任务 */
 
 static int  Setup(ppd_file_t *ppd, job_data_t *job);
 static int  StartPage(ppd_file_t *ppd, job_data_t *job, cups_page_header2_t *header);
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     unsigned            y;          /* 当前行 */
     unsigned char       *line;      /* 行缓冲 */
 
-    // sleep(30);      // sleep to make it attachable
+    // sleep(30);      // sleep to make it attachable by GDB
 
     /* 常规驱动初始化操作。 */
     if ( ( ppd = Initialize(argc, argv, &job) ) == NULL ) {
@@ -148,10 +148,10 @@ int main(int argc, char *argv[]) {
 /*
  * Setup() - 为打印任务设置打印机。
  */
-static int
-Setup(                 /* 输出：1 成功，0 失败 */
-    ppd_file_t *ppd,   /* 输入：打印机用 PPD 文件 */
-    job_data_t *job    /* 输出：任务数据 */
+static int              /* 输出 - 1 成功，0 失败 */
+Setup(
+    ppd_file_t  *ppd,   /* 输入 - 打印机用 PPD 文件 */
+    job_data_t  *job    /* 输入 - 任务数据 */
 ) {
     /* 参数发送到打印机。 */
     puts("DOCUMENT");
@@ -164,16 +164,16 @@ Setup(                 /* 输出：1 成功，0 失败 */
 /*
  * StartPage() - Start a page on the printer.
  */
-static int                          /* O - 1 on success, 0 on failure */
+static int                          /* 输出 - 1 成功，0 失败 */
 StartPage(
-    ppd_file_t *ppd,       /* I - PPD file for printer */
-    job_data_t *job,       /* I - Job data */
-    cups_page_header2_t *header     /* I - Page header */
+    ppd_file_t *ppd,                /* 输入 - 打印机用 PPD 文件 */
+    job_data_t *job,                /* 输入 - 任务数据 */
+    cups_page_header2_t *header     /* 输入 - 页头 */
 ) {
     if (
         header->cupsBitsPerColor != 8 &&
         header->cupsBitsPerColor != 16
-        ) {
+    ) {
         LogMessage("ERROR", "Bad cupsBitsPerColor");
         return 0;
     } else if ( header->cupsColorOrder != CUPS_ORDER_CHUNKED ) {
@@ -182,7 +182,7 @@ StartPage(
     } else if (
         header->cupsColorSpace != CUPS_CSPACE_W &&
         header->cupsColorSpace != CUPS_CSPACE_RGB
-        ) {
+    ) {
         LogMessage("ERROR", "Bad cupsColorSpace");
         return 0;
     }
@@ -197,11 +197,11 @@ StartPage(
 /*
  * OutputLine() - 输出一行的 raster 数据。
  */
-static int                          /* O - 1 on success, 0 on failure */
+static int                          /* 输出 - 1 成功，0 失败 */
 OutputLine(
-    ppd_file_t *ppd,                /* I - PPD file for printer */
-    cups_page_header2_t *header,    /* I - Page header */
-    unsigned char *line             /* I - Raster data */
+    ppd_file_t          *ppd,       /* 输入 - 打印机用 PPD 文件 */
+    cups_page_header2_t *header,    /* 输入 - 页头 */
+    unsigned char       *line       /* 输入 - Raster 数据 */
 ) {
     /* 将一行 raster 数据发送到打印机。 */
     if ( header->cupsBitsPerColor == 8 ) {
@@ -210,8 +210,8 @@ OutputLine(
         return ( fwrite(line, 1, header->cupsBytesPerLine, stdout) == header->cupsBytesPerLine );
     } else {
         /*
-         * 将 16 位数据发送到打印机。通常是要做抖动处理的，但是这里只要将 48 位 RGB 数据
-         * 转为 24 位。
+         * 将 16 位数据发送到打印机。通常是要做抖动处理的，但是这里只要将 48 位 RGB
+         * 数据转为 24 位。
          *
          * 这个公式：
          *

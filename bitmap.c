@@ -20,6 +20,11 @@
 #include "bitmap.h"
 
 /*
+ * 打算把所有的 log 信息都输出在 stderr，以免标准输出流
+ * 被重定向到文件或其他位置时输出无关信息。
+ */
+
+/*
  * log_error() - 将错误信息输出到 stderr。
  */
 void
@@ -31,14 +36,14 @@ log_error(              /* 输出 - void */
 }
 
 /*
- * log_error() - 将调试信息输出到 stdout。
+ * log_error() - 将调试信息输出到 stderr。
  */
 void
 log_debug(              /* 输出 - void */
     char    *type,      /* 输入 - 信息类型 */
     char    *content    /* 输入 - 信息内容 */
 ) {
-    fprintf(stdout, "[++] %s: %s\n", type, content);
+    fprintf(stderr, "[++] %s: %s\n", type, content);
 }
 
 /*
@@ -96,14 +101,14 @@ set_24bit_pixel_color(
 }
 
 /*
- * bitmap_24bit_write() - 向可写对象写入一个完整的 bitmap 文件。
+ * bitmap_24bit_write() - 向流对象写入一个完整的 bitmap 文件。
  */
 int                                     /* 输出 - 1 成功, 0 失败 */
 bitmap_24bit_write(
     bitmap_file_header  file_header,    /* 输入 - 文件头部信息 */
     bitmap_info_header  info_header,    /* 输入 - 位图头部信息 */
     bitmap_24bit_pixel  *pixels,        /* 输入 - 像素点阵 */
-    void                *fp             /* 输入 - 可写对象 */
+    void                *fp             /* 输入 - 流对象 */
 ) {
     int                 failure = FUNCTION_SUCCESS;
 
@@ -155,4 +160,33 @@ bitmap_24bit_write(
     }
 
     return failure;
+}
+
+int
+init_job(
+    int                 argc,
+    char                *argv[],
+    bitmap_job_data_t   *job
+) {
+    int i;
+
+    /* 检查命令行参数个数。 */
+    if ( argc != 7 ) {
+        log_error("Error", "Arguments wrong!");
+        fprintf(stderr, "argc = %d\n", argc);
+        for ( i = 0; i < argc; i ++ ) {
+            fprintf(stderr, "argv[%d] = %s\n", i, argv[i]);
+        }
+        //                    0  1    2     3   4 5  6
+        fprintf(stderr, "用法：%s 任务 用户名 标题 选项 [文件名]\n", argv[0]);
+        return FUNCTION_FAILURE;
+    }
+
+    /* 解析选项。 */
+    job->job_id = atoi(argv[1]);
+    job->user = argv[2];
+    job->title = argv[3];
+    job->num_options = cupsParseOptions(argv[5], 0, &( job->options ));
+
+    return FUNCTION_SUCCESS;
 }

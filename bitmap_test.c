@@ -16,7 +16,6 @@
  * <https://www.gnu.org/licenses/agpl-3.0.txt>.
  */
 
-#include <stdio.h>
 #include "bitmap.h"
 
 int main(int argc, char *argv[]) {

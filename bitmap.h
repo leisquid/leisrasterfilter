@@ -19,15 +19,22 @@
 #ifndef __LEISRASTERFILTER_BITMAP_H
 #define __LEISRASTERFILTER_BITMAP_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <cups/cups.h>
-#include <cups/ppd.h>
+// #include <cups/ppd.h>
 #include <string.h>
 // #include <errno.h>
 // #include <unistd.h>
-// #include <fcntl.h>
+#include <fcntl.h>
 
+#ifndef FUNCTION_SUCCESS
 #define FUNCTION_SUCCESS                    1       /* 定义函数成功默认返回 1 */
+#endif
+#ifndef FUNCTION_FAILURE
 #define FUNCTION_FAILURE                    0       /* 定义函数失败默认返回 0 */
+#endif
 
 #define BITMAP_FILE_TYPE_LE                 0x4d42  /* 位图文件标识通常为固定值，小端值为 0x4d42，即 ASCII “BM” */
 #define BITMAP_FILE_TYPE_BE                 0x424d  /* 位图文件标识的大端序表示 */
@@ -86,10 +93,24 @@ typedef struct {
     uint8_t     b24p_red;   /* 红色像素值 */
 } __attribute__ ((packed)) bitmap_24bit_pixel;
 
+/* 
+ * 任务数据。
+ */
+
+typedef struct {
+    int             job_id;         /* 任务 id */
+    const char      *user,          /* 提交任务的用户 */
+                    *title;         /* 任务标题 */
+    int             num_options;    /* 命令行选项个数 */
+    cups_option_t   *options;       /* 命令行选项 */
+} bitmap_job_data_t;
+
 extern int init_24bit_header(bitmap_file_header *file_header, bitmap_info_header *info_header, unsigned int width, unsigned int height);
 extern int set_24bit_pixel_color(bitmap_24bit_pixel *pixel, uint8_t red, uint8_t green, uint8_t blue);
 extern int bitmap_24bit_write(bitmap_file_header file_header, bitmap_info_header info_header, bitmap_24bit_pixel *pixels, void *fp);
 extern void log_error(char *type, char *content);
 extern void log_debug(char *type, char *content);
+
+extern int init_job(int argc, char *argv[], bitmap_job_data_t *job);
 
 #endif
