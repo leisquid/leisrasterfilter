@@ -19,29 +19,39 @@
 // #include <stdarg.h>
 #include "bitmap.h"
 
+/*
+ * log_error() - 将错误信息输出到 stderr。
+ */
 void
-log_error(
-    char    *type,
-    char    *content
+log_error(              /* 输出 - void */
+    char    *type,      /* 输入 - 信息类型 */
+    char    *content    /* 输入 - 信息内容 */
 ) {
     fprintf(stderr, "[!!] %s: %s\n", type, content);
 }
 
+/*
+ * log_error() - 将调试信息输出到 stdout。
+ */
 void
-log_debug(
-    char    *type,
-    char    *content
+log_debug(              /* 输出 - void */
+    char    *type,      /* 输入 - 信息类型 */
+    char    *content    /* 输入 - 信息内容 */
 ) {
     fprintf(stdout, "[++] %s: %s\n", type, content);
 }
 
+/*
+ * init_24bit_header() - 初始化 24 位深 bitmap 文件的完整头部信息。
+ */
 int
-init_24bit_header(
-    bitmap_file_header  *file_header,
-    bitmap_info_header  *info_header,
-    unsigned int        width,
-    unsigned int        height
+init_24bit_header(      /* 输出 - 1 成功, 0 失败 */
+    bitmap_file_header  *file_header,   /* 输入 - 文件头部信息 */
+    bitmap_info_header  *info_header,   /* 输入 - 位图头部信息 */
+    unsigned int        width,          /* 输入 - 图像宽度 */
+    unsigned int        height          /* 输入 - 图像高度 */
 ) {
+    /* bitmap 内容数据中，要求每行的字节数是 4 的倍数，计算出每行缺少的字符数。 */
     int width_to_fill = ( (width * 3 % 4)? (4 - (width * 3 % 4)): 0 );
 
     file_header->bf_type = BITMAP_FILE_TYPE_LE;
@@ -68,7 +78,16 @@ init_24bit_header(
     return FUNCTION_SUCCESS;
 }
 
-int set_24bit_pixel_color(bitmap_24bit_pixel *pixel, uint8_t red, uint8_t green, uint8_t blue) {
+/*
+ * set_24bit_pixel_color() - 将一个像素的 R, G, B 数值转换为像素点的属性值。
+ */
+int                             /* 输出 - 1 成功, 0 失败 */
+set_24bit_pixel_color(
+    bitmap_24bit_pixel  *pixel, /* 输入 - 一个 24 位深像素点 */
+    uint8_t             red,    /* 输入 - 8 位红色值 */
+    uint8_t             green,  /* 输入 - 8 位绿色值 */
+    uint8_t             blue    /* 输入 - 8 位蓝色值 */
+) {
     pixel->b24p_red = red;
     pixel->b24p_green = green;
     pixel->b24p_blue = blue;
@@ -76,19 +95,23 @@ int set_24bit_pixel_color(bitmap_24bit_pixel *pixel, uint8_t red, uint8_t green,
     return FUNCTION_SUCCESS;
 }
 
-int
+/*
+ * bitmap_24bit_write() - 向可写对象写入一个完整的 bitmap 文件。
+ */
+int                                     /* 输出 - 1 成功, 0 失败 */
 bitmap_24bit_write(
-    bitmap_file_header  file_header,
-    bitmap_info_header  info_header,
-    bitmap_24bit_pixel  *pixels,
-    FILE                *fp
+    bitmap_file_header  file_header,    /* 输入 - 文件头部信息 */
+    bitmap_info_header  info_header,    /* 输入 - 位图头部信息 */
+    bitmap_24bit_pixel  *pixels,        /* 输入 - 像素点阵 */
+    void                *fp             /* 输入 - 可写对象 */
 ) {
     int                 failure = FUNCTION_SUCCESS;
+
+    /* bitmap 内容数据中，要求每行的字节数是 4 的倍数，这是用于填充空白部分的随机信息。 */
     char                str_to_fill[3] = {70, 82, 76};
 
     unsigned int        width = info_header.bi_width;
     unsigned int        height = info_header.bi_height;
-    // unsigned long long  pixels_count = width * height;
     unsigned long long  bytes_count = 0;
     unsigned int        index;
     unsigned int        jndex;  /* （笑） */

@@ -22,7 +22,7 @@
 /*
  * GetStatus() - 读取状态信息。
  */
-int                     /* O - 1 on success, 0 on failure */
+int                     /* 输出 - 1 成功, 0 失败 */
 GetStatus(
     ppd_file_t *ppd,    /* I - PPD file for printer */
     double     timeout  /* I - Timeout in seconds */
@@ -174,11 +174,11 @@ GetStatus(
 /*
  * Initialize() - 打开 PPD 文件并分析（parse）选项。
  */
-ppd_file_t                  /* 输出：用于打印机的 PPD 文件 */
+ppd_file_t                  /* 输出 - 用于打印机的 PPD 文件 */
 *Initialize(
     int         argc,
     char        *argv[],
-    job_data_t  *job        /* 输入：任务数据 */
+    job_data_t  *job        /* 输入 - 任务数据 */
 ) {
     ppd_file_t  *ppd;       /* 用于打印机的 PPD 文件 */
     int i;
