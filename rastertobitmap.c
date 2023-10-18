@@ -46,10 +46,12 @@ main(
     unsigned            y;          /* 当前行 */
     unsigned char       *line;      /* 行缓冲 */
 
+    void                *buffer;    /* 文件缓冲 */
+
     // sleep(30);      // sleep to make it attachable by GDB
 
     /* 初始化操作。 */
-    if ( (init_job(argc, argv, &job) ) == FUNCTION_FAILURE ) {
+    if ( ( init_job(argc, argv, &job) ) == FUNCTION_FAILURE ) {
         log_error("Error", "Initialization failed");
         return EXIT_FAILURE;
     }
@@ -66,6 +68,7 @@ main(
     if ( argc >= 6 ) {
         if ( ( fd = open(argv[6], O_RDONLY) ) == -1 ) {
             log_error("Error", "Unable to open raster file!");
+            return EXIT_FAILURE;
         }
     } else {
         fd = 0;
@@ -79,7 +82,17 @@ main(
             break;
         }
 
-        /* 为这一行分配内存。 */
+        /* 分配页缓冲内存和行内存。 */
+        if ( (
+            buffer = malloc(
+                sizeof(bitmap_24bit_pixel)
+                * header.cupsWidth
+                * header.cupsHeight
+            )
+        ) ) {
+            log_error("Error", "Unable to allocate page buffer!");
+            break;
+        }
         if ( ( line = malloc(header.cupsBytesPerLine) ) == NULL ) {
             log_error("Error", "Unable to allocate line memory!");
             break;
@@ -104,13 +117,13 @@ main(
             /* 显示进度。 */
             if ( ( y & 128 ) == 0 ) {
                 fprintf(stderr, "++ Printing page %d, %.0f%% completed\n", page, (100.0 * y / header.cupsHeight));
-                puts("LEVELS");
+                fprintf(stderr, "LEVELS");
                 fflush(stderr);
             }
 
             /* 读写每一行。 */
             if ( cupsRasterReadPixels(ras, line, header.cupsBytesPerLine) > 0 ) {
-                if ( ! output_line(&header, line) ) {
+                if ( ! output_line(&header, line, NULL) ) {
                     break;
                 }
             } else {
@@ -118,7 +131,8 @@ main(
             }
         }
 
-        /* 释放行内存。 */
+        /* 释放内存。 */
+        free(buffer);
         free(line);
 
         /* 显示进度并结束当前页。 */
@@ -191,12 +205,155 @@ start_page(                     /* 输出 - 1 成功，0 失败 */
 /*
  * OutputLine() - 输出一行的 raster 数据。
  */
-static int                          /* 输出 - 1 成功，0 失败 */
+static int                              /* 输出 - 1 成功，0 失败 */
 output_line(
-    cups_page_header2_t *header,    /* 输入 - 页头 */
-    unsigned char       *line       /* 输入 - Raster 数据 */
+    cups_page_header2_t *header,        /* 输入 - 页头 */
+    unsigned char       *line,          /* 输入 - Raster 数据 */
+    void                *output_stream  /* 输入 - 待写入的流指针 */
 ) {
-    
+    unsigned            num_pixels = header->cupsWidth;
+    unsigned            pixels_count = 0;
+    unsigned            line_repeating_count = 0,
+                        run_length_count = 0;
+    uint8_t             byte_buffer;
+    uint8_t             pixel_buffer[3];
+    uint16_t            pixel_48bit_buffer[3];
+    bitmap_24bit_pixel  pixel;
+    bitmap_24bit_pixel  *line_buffer,
+                        *line_buffer_start_ptr;
+
+    /* 给行缓冲分配内存。 */
+    line_buffer = malloc(sizeof(pixel) * num_pixels);
+    /* 记下行缓冲起始位置的地址。 */
+    line_buffer_start_ptr = line_buffer;
+
+    if ( header->cupsBitsPerColor == 8 ) {  /* 色深为 8 位的情况 */
+        /* 读行重复次数。 */
+        fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+        line_repeating_count = byte_buffer + 1;
+        /* 读写一个行的数据。 */
+        do {
+            /* 读游离计数。 */
+            fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+            run_length_count = byte_buffer;
+            /* 判断游离编码模式还是点连续写入模式。 */
+            if (run_length_count >= 0 && run_length_count < 128) {
+                /* 游离编码模式，确定重复像素个数。 */
+                run_length_count ++;
+                /* 读一个像素。 */
+                fread(line, sizeof(pixel_buffer), 1, &pixel_buffer);
+                /* 将读到的 raster 像素转为 bitmap 像素。 */
+                set_24bit_pixel_color(
+                    &pixel,
+                    pixel_buffer[0],
+                    pixel_buffer[1],
+                    pixel_buffer[2]
+                );
+                /* 写入重复像素。 */
+                while (run_length_count > 0) {
+                    /* 写这个像素。 */
+                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    run_length_count --;
+                    pixels_count ++;
+                }
+            } else {
+                /* 连续写入模式，确定连续像素个数。 */
+                run_length_count = 257 - run_length_count;
+                /* 写入连续像素。 */
+                while (run_length_count > 0) {
+                    /* 读一个像素。 */
+                    fread(line, sizeof(pixel_buffer), 1, &pixel_buffer);
+                    /* 将读到的 raster 像素转为 bitmap 像素。 */
+                    set_24bit_pixel_color(
+                        &pixel,
+                        pixel_buffer[0],
+                        pixel_buffer[1],
+                        pixel_buffer[2]
+                    );
+                    /* 写这个像素。 */
+                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    run_length_count --;
+                    pixels_count ++;
+                }
+            }
+        } while ( pixels_count < num_pixels );
+        /* 一行读完了，开始向流写入数据。 */
+        while ( line_repeating_count > 0 ) {
+            line_buffer = line_buffer_start_ptr;    /* 行缓冲指针回到开头 */
+            fwrite(line_buffer, sizeof(pixel) * num_pixels, 1, output_stream);
+        }
+    } else {
+        /*
+         * 假设其他情况都是 16 位色深。通常是要做抖动处理的，但是这里只将 48 位 RGB
+         * 数据转为 24 位。
+         * 
+         * 这个公式：
+         *     (*pixel + 129) / 257
+         * 将 16 位像素值截断为近似的 8 位值 ("+ 129") 并从 16 位转为 8 位
+         * (65535 / 255 = 257)。
+         * 
+         * 当然，游离计数还是 8 位的。
+         */
+
+        /* 读行重复次数。 */
+        fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+        line_repeating_count = byte_buffer + 1;
+        /* 读写一个行的数据。 */
+        do {
+            /* 读游离计数。 */
+            fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+            run_length_count = byte_buffer;
+            /* 判断游离编码模式还是点连续写入模式。 */
+            if (run_length_count >= 0 && run_length_count < 128) {
+                /* 游离编码模式，确定重复像素个数。 */
+                run_length_count ++;
+                /* 读一个 48 位像素。 */
+                fread(line, sizeof(pixel_48bit_buffer), 1, &pixel_48bit_buffer);
+                /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
+                set_24bit_pixel_color(
+                    &pixel,
+                    ( ( pixel_48bit_buffer[0] + 129) / 257 ),
+                    ( ( pixel_48bit_buffer[1] + 129) / 257 ),
+                    ( ( pixel_48bit_buffer[2] + 129) / 257 )
+                );
+                /* 写入重复像素。 */
+                while (run_length_count > 0) {
+                    /* 写这个像素。 */
+                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    run_length_count --;
+                    pixels_count ++;
+                }
+            } else {
+                /* 连续写入模式，确定连续像素个数。 */
+                run_length_count = 257 - run_length_count;
+                /* 写入连续像素。 */
+                while (run_length_count > 0) {
+                    /* 读一个 48 位像素。 */
+                    fread(line, sizeof(pixel_48bit_buffer), 1, &pixel_48bit_buffer);
+                    /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
+                    set_24bit_pixel_color(
+                        &pixel,
+                        ( ( pixel_48bit_buffer[0] + 129) / 257 ),
+                        ( ( pixel_48bit_buffer[1] + 129) / 257 ),
+                        ( ( pixel_48bit_buffer[2] + 129) / 257 )
+                    );
+                    /* 写这个像素。 */
+                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    run_length_count --;
+                    pixels_count ++;
+                }
+            }
+        } while ( pixels_count < num_pixels );
+        /* 一行读完了，开始向流写入数据。 */
+        while ( line_repeating_count > 0 ) {
+            line_buffer = line_buffer_start_ptr;    /* 行缓冲指针回到开头 */
+            fwrite(line_buffer, sizeof(pixel) * num_pixels, 1, output_stream);
+            line_repeating_count --;
+        }
+    }
+    /* 释放行缓冲。 */
+    free(line_buffer);
+
     return FUNCTION_SUCCESS;
 }
 

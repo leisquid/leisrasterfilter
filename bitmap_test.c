@@ -31,8 +31,8 @@
 
 #include "bitmap.h"
 
-const unsigned int width = 83;
-const unsigned int height = 80;
+const unsigned  width = 83;
+const unsigned  height = 80;
 
 /*
  * main() - 程序主入口。

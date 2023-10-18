@@ -123,7 +123,7 @@ typedef struct {
  * bitmap.h 中的函数声明。具体定义位于 ./bitmap.c 。
  */
 
-extern int init_24bit_header(bitmap_file_header *file_header, bitmap_info_header *info_header, unsigned int width, unsigned int height);
+extern int init_24bit_header(bitmap_file_header *file_header, bitmap_info_header *info_header, unsigned width, unsigned height);
 extern int set_24bit_pixel_color(bitmap_24bit_pixel *pixel, uint8_t red, uint8_t green, uint8_t blue);
 extern int bitmap_24bit_write(bitmap_file_header file_header, bitmap_info_header info_header, bitmap_24bit_pixel *pixels, void *fp);
 extern void log_error(char *type, char *content);

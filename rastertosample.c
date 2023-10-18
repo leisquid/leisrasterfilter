@@ -74,6 +74,7 @@ main(
     if ( argc >= 6 ) {
         if ( ( fd = open(argv[6], O_RDONLY) ) == -1 ) {
             LogMessage("ERROR", "Unable to open raster file");
+            return EXIT_FAILURE;
         }
     } else {
         fd = 0;
@@ -209,7 +210,7 @@ StartPage(
 }
 
 /*
- * OutputLine() - 输出一行的 raster 数据。
+ * OutputLine() - 输出一行的 raster 数据。实际上这里输出到标准输出了。
  */
 static int                          /* 输出 - 1 成功，0 失败 */
 OutputLine(
@@ -219,18 +220,16 @@ OutputLine(
 ) {
     /* 将一行 raster 数据发送到打印机。 */
     if ( header->cupsBitsPerColor == 8 ) {
-        /* 将 8 位数据发送到打印机。实际上这里输出到标准输出了。 */
+        /* 将 8 位数据发送到打印机。 */
         printf("LINE %d\n", header->cupsBytesPerLine);
         return ( fwrite(line, 1, header->cupsBytesPerLine, stdout) == header->cupsBytesPerLine );
     } else {
         /*
-         * 将 16 位数据发送到打印机。通常是要做抖动处理的，但是这里只要将 48 位 RGB
+         * 将 16 位数据发送到打印机。通常是要做抖动处理的，但是这里只将 48 位 RGB
          * 数据转为 24 位。
          *
          * 这个公式：
-         *
          *     (*pixel + 129) / 257
-         *
          * 将 16 位像素值截断为近似的 8 位值 ("+ 129") 并从 16 位转为 8 位
          * (65535 / 255 = 257)。
          */

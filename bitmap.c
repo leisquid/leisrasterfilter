@@ -61,8 +61,8 @@ int
 init_24bit_header(      /* 输出 - 1 成功, 0 失败 */
     bitmap_file_header  *file_header,   /* 输入 - 文件头部信息 */
     bitmap_info_header  *info_header,   /* 输入 - 位图头部信息 */
-    unsigned int        width,          /* 输入 - 图像宽度 */
-    unsigned int        height          /* 输入 - 图像高度 */
+    unsigned            width,          /* 输入 - 图像宽度 */
+    unsigned            height          /* 输入 - 图像高度 */
 ) {
     /* bitmap 内容数据中，要求每行的字节数是 4 的倍数，计算出每行缺少的字符数。 */
     int width_to_fill = ( (width * 3 % 4)? (4 - (width * 3 % 4)): 0 );
@@ -116,18 +116,18 @@ bitmap_24bit_write(
     bitmap_file_header  file_header,    /* 输入 - 文件头部信息 */
     bitmap_info_header  info_header,    /* 输入 - 位图头部信息 */
     bitmap_24bit_pixel  *pixels,        /* 输入 - 像素点阵 */
-    void                *fp             /* 输入 - 流对象 */
+    void                *fp             /* 输入 - 待写入的流指针 */
 ) {
     int                 failure = FUNCTION_SUCCESS;
 
     /* bitmap 内容数据中，要求每行的字节数是 4 的倍数，这是用于填充空白部分的随机信息。 */
     char                str_to_fill[3] = {70, 82, 76};
 
-    unsigned int        width = info_header.bi_width;
-    unsigned int        height = info_header.bi_height;
+    unsigned            width = info_header.bi_width;
+    unsigned            height = info_header.bi_height;
     unsigned long long  bytes_count = 0;
-    unsigned int        index;
-    unsigned int        jndex;  /* （笑） */
+    unsigned            index;
+    unsigned            jndex;  /* （笑） */
     
 
     if ( fwrite(&file_header, sizeof(bitmap_file_header), 1, fp) != 1 ) {
