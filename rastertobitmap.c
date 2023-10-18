@@ -95,11 +95,21 @@ int main(int argc, char *argv[]) {
 
             /* 读写每一行。 */
             if ( cupsRasterReadPixels(ras, line, header.cupsBytesPerLine) > 0 ) {
-
+                if ( ! output_line(&header, line) ) {
+                    break;
+                }
             } else {
                 break;
             }
         }
+
+        /* 释放行内存。 */
+        free(line);
+
+        /* 显示进度并结束当前页。 */
+        log_debug("Info", "Finishing page");
+
+
     }
 
     return EXIT_SUCCESS;
@@ -160,7 +170,12 @@ output_line(
     unsigned char       *line       /* 输入 - Raster 数据 */
 ) {
 
+    return FUNCTION_SUCCESS;
 }
+
+/*
+ * end_page() - 结束处理
+ */
 
 /*
  * SignalHandler() - 信号处理。
