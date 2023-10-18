@@ -30,20 +30,20 @@
 #include <fcntl.h>
 
 #ifndef FUNCTION_SUCCESS
-#define FUNCTION_SUCCESS 1                      /* 定义函数成功默认返回 1 */
+#define FUNCTION_SUCCESS                    1       /* 定义函数成功默认返回 1 */
 #endif
 #ifndef FUNCTION_FAILURE
-#define FUNCTION_FAILURE 0                      /* 定义函数失败默认返回 0 */
+#define FUNCTION_FAILURE                    0       /* 定义函数失败默认返回 0 */
 #endif
 
-#define BITMAP_FILE_TYPE_LE 0x4d42              /* 位图文件标识通常为固定值，小端值为 0x4d42，即 ASCII “BM” */
-#define BITMAP_FILE_TYPE_BE 0x424d              /* 位图文件标识的大端序表示 */
-#define BITMAP_FILE_RESERVED1 29516             /* 预留字段 1 的默认值 */
-#define BITMAP_FILE_RESERVED2 18002             /* 预留字段 2 的默认值 */
-#define BITMAP_INFO_DEFAULT_COLOR_PLANE 1       /* 色彩平面数必须为 1 */
-#define BITMAP_INFO_DEFAULT_COLOR_INDEX 0       /* 颜色索引数通常为 0 */
-#define BITMAP_INFO_DEFAULT_COLOR_IMPORTANT 0   /* 重要颜色数通常为 0 */
-#define BITMAP_INFO_NON_COMPRESSION 0           /* 压缩方式 0 为不压缩 */
+#define BITMAP_FILE_TYPE_LE                 0x4d42  /* 位图文件标识通常为固定值，小端值为 0x4d42，即 ASCII “BM” */
+#define BITMAP_FILE_TYPE_BE                 0x424d  /* 位图文件标识的大端序表示 */
+#define BITMAP_FILE_RESERVED1               29516   /* 预留字段 1 的默认值 */
+#define BITMAP_FILE_RESERVED2               18002   /* 预留字段 2 的默认值 */
+#define BITMAP_INFO_DEFAULT_COLOR_PLANE     1       /* 色彩平面数必须为 1 */
+#define BITMAP_INFO_DEFAULT_COLOR_INDEX     0       /* 颜色索引数通常为 0 */
+#define BITMAP_INFO_DEFAULT_COLOR_IMPORTANT 0       /* 重要颜色数通常为 0 */
+#define BITMAP_INFO_NON_COMPRESSION         0       /* 压缩方式 0 为不压缩 */
 
 /*
  * bitmap 文件头部信息，在文件中为 14 字节。
