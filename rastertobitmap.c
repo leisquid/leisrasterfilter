@@ -14,6 +14,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Leisrasterfilter. If not, see
  * <https://www.gnu.org/licenses/agpl-3.0.txt>.
+ *
+ * 此文件是 Leisrasterfilter 的一部分。
+ * Leisrasterfilter 是自由软件：您可以在遵照自由软件基金会发布的「GNU Affero 通用
+ * 公共许可证」（第 3 版或者更新版本皆可）的前提下对其进行转载或者修改。
+ * 发布 Leisrasterfilter 的初衷是希望它能有一定的用处，但是并不为销售或特定用途等
+ * 情况做出任何担保。参见「GNU Affero 通用公共许可证」。
+ * 您应该随 Leisrasterfilter 获得了一份「GNU Affero 通用公共许可证」的副本。如果
+ * 没有，请看 <https://www.gnu.org/licenses/agpl-3.0.txt>。
  */
 
 #include "bitmap.h"
@@ -22,7 +30,14 @@
 
 static int  CancelJob = 0;          /* 设为 1 时取消当前任务 */
 
-int main(int argc, char *argv[]) {
+/*
+ * main() - 程序主入口。
+ */
+int                                 /* 输出 - 0 成功，1 失败 */
+main(
+    int argc,                       /* 输入 - 命令行参数个数。 */
+    char *argv[]                    /* 输入 - 命令行参数内容。 */
+) {
     bitmap_job_data_t   job;        /* 任务数据 */
     int                 page = 0;   /* 当前页数 */
     int                 fd;         /* raster 数据的文件描述符 */
@@ -109,10 +124,22 @@ int main(int argc, char *argv[]) {
         /* 显示进度并结束当前页。 */
         log_debug("Info", "Finishing page");
 
-
+        if ( ! end_page(&job, &header) ) {
+            break;
+        }
     }
 
-    return EXIT_SUCCESS;
+    /* 结束打印任务。 */
+    shutdown(&job);
+
+    /* 显示最终状态。 */
+    if (page == 0) {
+        log_error("Error", "No pages found!");
+        return EXIT_FAILURE;
+    } else {
+        log_debug("Info", "Ready to print");
+        return EXIT_SUCCESS;
+    }
 }
 
 /*
@@ -169,13 +196,31 @@ output_line(
     cups_page_header2_t *header,    /* 输入 - 页头 */
     unsigned char       *line       /* 输入 - Raster 数据 */
 ) {
-
+    
     return FUNCTION_SUCCESS;
 }
 
 /*
- * end_page() - 结束处理
+ * end_page() - 结束处理当前页面。
  */
+static int
+end_page(                       /* 输出 - 1 成功，0 失败 */
+    bitmap_job_data_t   *job,   /* 输入 - 任务数据 */
+    cups_page_header2_t *header /* 输入 - 页头 */
+) {
+    fprintf(stderr, "END_OF_PAGE");
+    return FUNCTION_SUCCESS;
+}
+
+/*
+ * shutdown() - 结束当前任务。
+ */
+static int shutdown(            /* 输出 - 1 成功，0 失败 */
+    bitmap_job_data_t   *job    /* 输入 - 任务数据 */
+) {
+    fprintf(stderr, "END_OF_DOCUMENT");
+    return FUNCTION_SUCCESS;
+}
 
 /*
  * SignalHandler() - 信号处理。

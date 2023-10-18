@@ -14,6 +14,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Leisrasterfilter. If not, see
  * <https://www.gnu.org/licenses/agpl-3.0.txt>.
+ *
+ * 此文件是 Leisrasterfilter 的一部分。
+ * Leisrasterfilter 是自由软件：您可以在遵照自由软件基金会发布的「GNU Affero 通用
+ * 公共许可证」（第 3 版或者更新版本皆可）的前提下对其进行转载或者修改。
+ * 发布 Leisrasterfilter 的初衷是希望它能有一定的用处，但是并不为销售或特定用途等
+ * 情况做出任何担保。参见「GNU Affero 通用公共许可证」。
+ * 您应该随 Leisrasterfilter 获得了一份「GNU Affero 通用公共许可证」的副本。如果
+ * 没有，请看 <https://www.gnu.org/licenses/agpl-3.0.txt>。
  */
 
 #ifndef __LEISRASTERFILTER_BITMAP_H
@@ -44,6 +52,12 @@
 #define BITMAP_INFO_DEFAULT_COLOR_INDEX     0       /* 颜色索引数通常为 0 */
 #define BITMAP_INFO_DEFAULT_COLOR_IMPORTANT 0       /* 重要颜色数通常为 0 */
 #define BITMAP_INFO_NON_COMPRESSION         0       /* 压缩方式 0 为不压缩 */
+#define BITMAP_INFO_DEFAULT_X_RES           0       /* 横向分辨率的默认值 */
+#define BITMAP_INFO_DEFAULT_Y_RES           0       /* 纵向分辨率的默认值 */
+/*
+ * 一般有的地方会说上面的这两个值可以为 0，但是在 KolourPaint 输出的文件中，这个值
+ * 好像被设定为 3,780，或者叫做 0xec4。到底有什么特定含义呢？我还不太清楚。
+ */
 
 /*
  * bitmap 文件头部信息，在文件中为 14 字节。
@@ -104,6 +118,10 @@ typedef struct {
     int             num_options;    /* 命令行选项个数 */
     cups_option_t   *options;       /* 命令行选项 */
 } bitmap_job_data_t;
+
+/*
+ * bitmap.h 中的函数声明。具体定义位于 ./bitmap.c 。
+ */
 
 extern int init_24bit_header(bitmap_file_header *file_header, bitmap_info_header *info_header, unsigned int width, unsigned int height);
 extern int set_24bit_pixel_color(bitmap_24bit_pixel *pixel, uint8_t red, uint8_t green, uint8_t blue);

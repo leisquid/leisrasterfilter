@@ -14,6 +14,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Leisrasterfilter. If not, see
  * <https://www.gnu.org/licenses/agpl-3.0.txt>.
+ *
+ * 此文件是 Leisrasterfilter 的一部分。
+ * Leisrasterfilter 是自由软件：您可以在遵照自由软件基金会发布的「GNU Affero 通用
+ * 公共许可证」（第 3 版或者更新版本皆可）的前提下对其进行转载或者修改。
+ * 发布 Leisrasterfilter 的初衷是希望它能有一定的用处，但是并不为销售或特定用途等
+ * 情况做出任何担保。参见「GNU Affero 通用公共许可证」。
+ * 您应该随 Leisrasterfilter 获得了一份「GNU Affero 通用公共许可证」的副本。如果
+ * 没有，请看 <https://www.gnu.org/licenses/agpl-3.0.txt>。
  */
 
 #ifndef __LEISRASTERFILTER_SAMPLE_H

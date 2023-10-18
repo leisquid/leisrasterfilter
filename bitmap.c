@@ -14,14 +14,22 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Leisrasterfilter. If not, see
  * <https://www.gnu.org/licenses/agpl-3.0.txt>.
+ *
+ * 此文件是 Leisrasterfilter 的一部分。
+ * Leisrasterfilter 是自由软件：您可以在遵照自由软件基金会发布的「GNU Affero 通用
+ * 公共许可证」（第 3 版或者更新版本皆可）的前提下对其进行转载或者修改。
+ * 发布 Leisrasterfilter 的初衷是希望它能有一定的用处，但是并不为销售或特定用途等
+ * 情况做出任何担保。参见「GNU Affero 通用公共许可证」。
+ * 您应该随 Leisrasterfilter 获得了一份「GNU Affero 通用公共许可证」的副本。如果
+ * 没有，请看 <https://www.gnu.org/licenses/agpl-3.0.txt>。
  */
 
 // #include <stdarg.h>
 #include "bitmap.h"
 
 /*
- * 打算把所有的 log 信息都输出在 stderr，以免标准输出流
- * 被重定向到文件或其他位置时输出无关信息。
+ * 打算把所有的 log 信息都输出在 stderr，以免标准输出流被重定向到文件或其他位置时
+ * 输出无关信息。
  */
 
 /*
@@ -75,8 +83,8 @@ init_24bit_header(      /* 输出 - 1 成功, 0 失败 */
     info_header->bi_bit_size = 24;
     info_header->bi_compression = BITMAP_INFO_NON_COMPRESSION;
     info_header->bi_data_size = sizeof(bitmap_24bit_pixel) * width * height + width_to_fill * height;
-    info_header->bi_x_res = 0;
-    info_header->bi_y_res = 0;
+    info_header->bi_x_res = BITMAP_INFO_DEFAULT_X_RES;
+    info_header->bi_y_res = BITMAP_INFO_DEFAULT_Y_RES;
     info_header->bi_color_index = BITMAP_INFO_DEFAULT_COLOR_INDEX;
     info_header->bi_color_important = BITMAP_INFO_DEFAULT_COLOR_IMPORTANT;
 
@@ -162,11 +170,14 @@ bitmap_24bit_write(
     return failure;
 }
 
-int
+/*
+ * init_job() - 模拟一个打印服务器，初始化一个打印任务。
+ */
+int                                 /* 输出 - 1 成功，0 失败 */
 init_job(
-    int                 argc,
-    char                *argv[],
-    bitmap_job_data_t   *job
+    int                 argc,       /* 输入 - 从 main() 传过来的参数个数 */
+    char                *argv[],    /* 输入 - 从 main() 传过来的参数内容 */
+    bitmap_job_data_t   *job        /* 输入 - 一个任务对象 */
 ) {
     int i;
 
@@ -177,7 +188,7 @@ init_job(
         for ( i = 0; i < argc; i ++ ) {
             fprintf(stderr, "argv[%d] = %s\n", i, argv[i]);
         }
-        //                    0  1    2     3   4 5  6
+        /*                    0  1    2     3   4 5  6                  */
         fprintf(stderr, "用法：%s 任务 用户名 标题 选项 [文件名]\n", argv[0]);
         return FUNCTION_FAILURE;
     }

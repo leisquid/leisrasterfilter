@@ -14,6 +14,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Leisrasterfilter. If not, see
  * <https://www.gnu.org/licenses/agpl-3.0.txt>.
+ *
+ * 此文件是 Leisrasterfilter 的一部分。
+ * Leisrasterfilter 是自由软件：您可以在遵照自由软件基金会发布的「GNU Affero 通用
+ * 公共许可证」（第 3 版或者更新版本皆可）的前提下对其进行转载或者修改。
+ * 发布 Leisrasterfilter 的初衷是希望它能有一定的用处，但是并不为销售或特定用途等
+ * 情况做出任何担保。参见「GNU Affero 通用公共许可证」。
+ * 您应该随 Leisrasterfilter 获得了一份「GNU Affero 通用公共许可证」的副本。如果
+ * 没有，请看 <https://www.gnu.org/licenses/agpl-3.0.txt>。
  */
 
 #include "sample.h"
@@ -29,8 +37,14 @@ static int  EndPage(ppd_file_t *ppd, job_data_t *job, cups_page_header2_t *heade
 static int  Shutdown(ppd_file_t *ppd, job_data_t *job);
 static void SignalHandler(int sig);
 
-
-int main(int argc, char *argv[]) {
+/*
+ * main() - 程序主入口。
+ */
+int                 /* 输出 - 0 成功，1 失败 */
+main(
+    int argc,       /* 输入 - 命令行参数个数。 */
+    char *argv[]    /* 输入 - 命令行参数内容。 */
+) {
     ppd_file_t          *ppd;       /* 用于打印机的 PPD 文件 */
     job_data_t          job;        /* Job data */
     int                 page = 0;   /* 当前页数 */
@@ -245,9 +259,9 @@ OutputLine(
  */
 static int
 EndPage(
-    ppd_file_t *ppd,            /* I - PPD file for printer */
-    job_data_t *job,            /* I - Job data */
-    cups_page_header2_t *header /* I - Page header */
+    ppd_file_t          *ppd,   /* 输入 - 打印机用 PPD 文件 */
+    job_data_t          *job,   /* 输入 - 任务数据 */
+    cups_page_header2_t *header /* 输入 - 页头 */
 ) {
     /* 向打印机（大嘘）发送结束页面指令。 */
     puts("ENDPAGE");
@@ -257,10 +271,10 @@ EndPage(
 /*
  * Shutdown() - 结束打印机的当前任务。
  */
-static int                  /* O - 1 on success, 0 on failure */
+static int              /* 输出 - 1 成功，0 失败 */
 Shutdown(
-    ppd_file_t *ppd,        /* I - PPD file for printer */
-    job_data_t *job         /* I - Job data */
+    ppd_file_t *ppd,    /* 输入 - 打印机用 PPD 文件 */
+    job_data_t *job     /* 输入 - 任务数据 */
 ) {
     puts("ENDDOCUMENT");
     return 1;
