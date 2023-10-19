@@ -5,3 +5,4 @@ bitmap_test
 test.bmp
 output.txt
 output/*
+rastertobitmap

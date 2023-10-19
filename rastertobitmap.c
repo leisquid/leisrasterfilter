@@ -205,7 +205,7 @@ setup(
 }
 
 /*
- * StartPage() - 开始输出一页。
+ * start_page() - 开始输出一页。
  */
 static int
 start_page(                     /* 输出 - 1 成功，0 失败 */
@@ -237,7 +237,7 @@ start_page(                     /* 输出 - 1 成功，0 失败 */
 }
 
 /*
- * OutputLine() - 输出一行的 raster 数据。
+ * output_line() - 输出一行的 raster 数据。
  */
 static int                              /* 输出 - 1 成功，0 失败 */
 output_line(
@@ -404,9 +404,9 @@ end_page(                       /* 输出 - 1 成功，0 失败 */
 }
 
 /*
- * shutdown() - 结束当前任务。
+ * rtd_shutdown() - 结束当前任务。
  */
-static int rtd_shutdown(            /* 输出 - 1 成功，0 失败 */
+static int rtd_shutdown(        /* 输出 - 1 成功，0 失败 */
     bitmap_job_data_t   *job    /* 输入 - 任务数据 */
 ) {
     fprintf(stderr, "END_OF_DOCUMENT");
