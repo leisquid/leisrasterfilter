@@ -263,19 +263,19 @@ output_line(
 
     if ( header->cupsBitsPerColor == 8 ) {  /* 色深为 8 位的情况 */
         /* 读行重复次数。 */
-        fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+        fread(&byte_buffer, sizeof(byte_buffer), 1, line);
         line_repeating_count = byte_buffer + 1;
         /* 读写一个行的数据。 */
         do {
             /* 读游离计数。 */
-            fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+            fread(&byte_buffer, sizeof(byte_buffer), 1, line);
             run_length_count = byte_buffer;
             /* 判断游离编码模式还是点连续写入模式。 */
             if (run_length_count >= 0 && run_length_count < 128) {
                 /* 游离编码模式，确定重复像素个数。 */
                 run_length_count ++;
                 /* 读一个像素。 */
-                fread(line, sizeof(pixel_buffer), 1, &pixel_buffer);
+                fread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
                 /* 将读到的 raster 像素转为 bitmap 像素。 */
                 set_24bit_pixel_color(
                     &pixel,
@@ -296,7 +296,7 @@ output_line(
                 /* 写入连续像素。 */
                 while (run_length_count > 0) {
                     /* 读一个像素。 */
-                    fread(line, sizeof(pixel_buffer), 1, &pixel_buffer);
+                    fread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
                     /* 将读到的 raster 像素转为 bitmap 像素。 */
                     set_24bit_pixel_color(
                         &pixel,
@@ -330,19 +330,19 @@ output_line(
          */
 
         /* 读行重复次数。 */
-        fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+        fread(&byte_buffer, sizeof(byte_buffer), 1, line);
         line_repeating_count = byte_buffer + 1;
         /* 读写一个行的数据。 */
         do {
             /* 读游离计数。 */
-            fread(line, sizeof(byte_buffer), 1, &byte_buffer);
+            fread(&byte_buffer, sizeof(byte_buffer), 1, line);
             run_length_count = byte_buffer;
             /* 判断游离编码模式还是点连续写入模式。 */
             if (run_length_count >= 0 && run_length_count < 128) {
                 /* 游离编码模式，确定重复像素个数。 */
                 run_length_count ++;
                 /* 读一个 48 位像素。 */
-                fread(line, sizeof(pixel_48bit_buffer), 1, &pixel_48bit_buffer);
+                fread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
                 /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
                 set_24bit_pixel_color(
                     &pixel,
@@ -363,7 +363,7 @@ output_line(
                 /* 写入连续像素。 */
                 while (run_length_count > 0) {
                     /* 读一个 48 位像素。 */
-                    fread(line, sizeof(pixel_48bit_buffer), 1, &pixel_48bit_buffer);
+                    fread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
                     /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
                     set_24bit_pixel_color(
                         &pixel,
