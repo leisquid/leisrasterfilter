@@ -30,25 +30,37 @@
 
 static int  CancelJob = 0;          /* 设为 1 时取消当前任务 */
 
+static void SignalHandler(int sig);
+static int setup(bitmap_job_data_t *job);
+static int start_page(bitmap_job_data_t *job, cups_page_header2_t *header);
+static int output_line(cups_page_header2_t *header, unsigned char *line, void *output_stream);
+static int end_page(bitmap_job_data_t *job, cups_page_header2_t *header);
+static int rtd_shutdown(bitmap_job_data_t *job);
+
 /*
  * main() - 程序主入口。
  */
-int                                 /* 输出 - 0 成功，1 失败 */
+int                                     /* 输出 - 0 成功，1 失败 */
 main(
-    int argc,                       /* 输入 - 命令行参数个数。 */
-    char *argv[]                    /* 输入 - 命令行参数内容。 */
+    int argc,                           /* 输入 - 命令行参数个数。 */
+    char *argv[]                        /* 输入 - 命令行参数内容。 */
 ) {
-    bitmap_job_data_t   job;        /* 任务数据 */
-    int                 page = 0;   /* 当前页数 */
-    int                 fd;         /* raster 数据的文件描述符 */
-    cups_raster_t       *ras;       /* raster 流 */
-    cups_page_header2_t header;     /* 当前页头数据 */
-    unsigned            y;          /* 当前行 */
-    unsigned char       *line;      /* 行缓冲 */
+    bitmap_job_data_t   job;            /* 任务数据 */
+    int                 page = 0;       /* 当前页数 */
+    int                 fd;             /* raster 数据的文件描述符 */
+    cups_raster_t       *ras;           /* raster 流 */
+    cups_page_header2_t header;         /* 当前页头数据 */
+    unsigned            y;              /* 当前行 */
+    unsigned char       *line;          /* 行缓冲 */
 
-    void                *buffer;    /* 文件缓冲 */
+    void                *buffer;        /* 像素阵缓冲 */
+    FILE                *fp;            /* 输出文件 */
+    char                filename[256];  /* 输出文件名 */
 
-    // sleep(30);      // sleep to make it attachable by GDB
+    bitmap_file_header  file_header;    /* bitmap 文件头部 */
+    bitmap_info_header  info_header;    /* bitmap 位图头部 */
+
+    // sleep(30);      /* sleep to make it attachable by GDB */
 
     /* 初始化操作。 */
     if ( ( init_job(argc, argv, &job) ) == FUNCTION_FAILURE ) {
@@ -84,16 +96,19 @@ main(
 
         /* 分配页缓冲内存和行内存。 */
         if ( (
-            buffer = malloc(
-                sizeof(bitmap_24bit_pixel)
-                * header.cupsWidth
-                * header.cupsHeight
-            )
-        ) ) {
+            buffer = (bitmap_24bit_pixel *) malloc(
+                        sizeof(bitmap_24bit_pixel)
+                        * header.cupsWidth
+                        * header.cupsHeight
+            ) ) == NULL
+        ) {
             log_error("Error", "Unable to allocate page buffer!");
             break;
         }
-        if ( ( line = malloc(header.cupsBytesPerLine) ) == NULL ) {
+        if ( (
+            line = (unsigned char *) malloc(
+                        header.cupsBytesPerLine
+            ) ) == NULL ) {
             log_error("Error", "Unable to allocate line memory!");
             break;
         }
@@ -116,20 +131,39 @@ main(
 
             /* 显示进度。 */
             if ( ( y & 128 ) == 0 ) {
-                fprintf(stderr, "++ Printing page %d, %.0f%% completed\n", page, (100.0 * y / header.cupsHeight));
-                fprintf(stderr, "LEVELS");
+                fprintf(stderr, "[--] Printing page %d, %.0f%% completed\n", page, (100.0 * y / header.cupsHeight));
                 fflush(stderr);
             }
 
             /* 读写每一行。 */
             if ( cupsRasterReadPixels(ras, line, header.cupsBytesPerLine) > 0 ) {
-                if ( ! output_line(&header, line, NULL) ) {
+                if ( ! output_line(&header, line, buffer) ) {
                     break;
                 }
             } else {
                 break;
             }
         }
+
+        /*
+         * 输出 bitmap 文件。
+         */
+        /* 对像素阵做上下反转处理。 */
+        pixel_24bit_matrix_upsidedown(buffer, header.cupsWidth, header.cupsHeight);
+        init_24bit_header(
+            &file_header,
+            &info_header,
+            header.cupsWidth,
+            header.cupsHeight
+        );
+        /* 生成文件名。 */
+        fprintf(filename, "./output/%05d.bmp", page);
+        /* 打开文件。 */
+        fp = fopen(filename, "wb");
+        if ( bitmap_24bit_write(file_header, info_header, buffer, fp) != FUNCTION_SUCCESS ) {
+            log_error("ERROR", "File writing failure!");
+        }
+        fclose(fp);
 
         /* 释放内存。 */
         free(buffer);
@@ -144,7 +178,7 @@ main(
     }
 
     /* 结束打印任务。 */
-    shutdown(&job);
+    rtd_shutdown(&job);
 
     /* 显示最终状态。 */
     if (page == 0) {
@@ -223,7 +257,7 @@ output_line(
                         *line_buffer_start_ptr;
 
     /* 给行缓冲分配内存。 */
-    line_buffer = malloc(sizeof(pixel) * num_pixels);
+    line_buffer = (bitmap_24bit_pixel *) malloc(sizeof(pixel) * num_pixels);
     /* 记下行缓冲起始位置的地址。 */
     line_buffer_start_ptr = line_buffer;
 
@@ -372,7 +406,7 @@ end_page(                       /* 输出 - 1 成功，0 失败 */
 /*
  * shutdown() - 结束当前任务。
  */
-static int shutdown(            /* 输出 - 1 成功，0 失败 */
+static int rtd_shutdown(            /* 输出 - 1 成功，0 失败 */
     bitmap_job_data_t   *job    /* 输入 - 任务数据 */
 ) {
     fprintf(stderr, "END_OF_DOCUMENT");
@@ -385,4 +419,3 @@ static int shutdown(            /* 输出 - 1 成功，0 失败 */
 static void SignalHandler(int sig) {
     CancelJob = 1;
 }
-

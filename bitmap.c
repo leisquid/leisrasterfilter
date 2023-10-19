@@ -24,7 +24,6 @@
  * 没有，请看 <https://www.gnu.org/licenses/agpl-3.0.txt>。
  */
 
-// #include <stdarg.h>
 #include "bitmap.h"
 
 /*
@@ -55,6 +54,12 @@ log_debug(              /* 输出 - void */
 }
 
 /*
+ * 讲点有意思的：
+ * 1. bitmap 每行的像素数据是从下到上排列的。
+ * 2. 在 bitmap 内容数据中，每行数据的字节数是 4 的倍数。
+ */
+
+/*
  * init_24bit_header() - 初始化 24 位深 bitmap 文件的完整头部信息。
  */
 int
@@ -64,7 +69,7 @@ init_24bit_header(      /* 输出 - 1 成功, 0 失败 */
     unsigned            width,          /* 输入 - 图像宽度 */
     unsigned            height          /* 输入 - 图像高度 */
 ) {
-    /* bitmap 内容数据中，要求每行的字节数是 4 的倍数，计算出每行缺少的字符数。 */
+    /* 计算出每行缺少的字符数。 */
     int width_to_fill = ( (width * 3 % 4)? (4 - (width * 3 % 4)): 0 );
 
     file_header->bf_type = BITMAP_FILE_TYPE_LE;
@@ -110,6 +115,7 @@ set_24bit_pixel_color(
 
 /*
  * bitmap_24bit_write() - 向流对象写入一个完整的 bitmap 文件。
+ *                        这里假设像素点阵是从下到上排序过的。
  */
 int                                     /* 输出 - 1 成功, 0 失败 */
 bitmap_24bit_write(
@@ -128,7 +134,6 @@ bitmap_24bit_write(
     unsigned long long  bytes_count = 0;
     unsigned            index;
     unsigned            jndex;  /* （笑） */
-    
 
     if ( fwrite(&file_header, sizeof(bitmap_file_header), 1, fp) != 1 ) {
         failure = FUNCTION_FAILURE;
@@ -198,6 +203,34 @@ init_job(
     job->user = argv[2];
     job->title = argv[3];
     job->num_options = cupsParseOptions(argv[5], 0, &( job->options ));
+
+    return FUNCTION_SUCCESS;
+}
+
+/*
+ * pixel_matrix_upsidedown() - 将像素阵上下颠倒，
+ *                             因为 raster 的行像素是从上到下排列的，
+ *                             而 bitmap 相反。
+ */
+int
+pixel_24bit_matrix_upsidedown(
+    bitmap_24bit_pixel  *pixels,
+    unsigned            width,
+    unsigned            height
+) {
+    bitmap_24bit_pixel  line_buffer;
+    unsigned            index, jndex;
+
+    for ( index = 0; ( (height - 1 - index) > index ); index ++ ) {
+        for ( jndex = 0; jndex < width; jndex ++ ) {
+            /* i 行写缓冲 */
+            line_buffer = pixels[ index * width + jndex ];
+            /* (n - 1 - i) 行写 i 行 */
+            pixels[ index * width + jndex ] = pixels[ (height - 1 - index) + jndex ];
+            /* 缓冲写 (n - 1 - i) 行 */
+            pixels[ (height - 1 - index) + jndex ] = line_buffer;
+        }
+    }
 
     return FUNCTION_SUCCESS;
 }

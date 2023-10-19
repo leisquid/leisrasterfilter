@@ -1,1 +1,1 @@
-https://www.cups.org/doc/spec-raster.html
+https://openprinting.github.io/cups/doc/spec-raster.html
