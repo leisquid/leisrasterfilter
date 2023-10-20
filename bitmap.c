@@ -156,7 +156,7 @@ bitmap_24bit_write(
                 break;
             }
 
-            if ( fwrite(&(pixels[index * height + jndex]), sizeof(bitmap_24bit_pixel), 1, fp) != 1 ) {
+            if ( fwrite(&(pixels[index * width + jndex]), sizeof(bitmap_24bit_pixel), 1, fp) != 1 ) {
                 failure = FUNCTION_FAILURE;
             } else {
                 bytes_count += sizeof(bitmap_24bit_pixel);

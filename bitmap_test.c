@@ -32,7 +32,7 @@
 #include "bitmap.h"
 
 const unsigned  width = 83;
-const unsigned  height = 35;
+const unsigned  height = 100;
 
 /*
  * main() - 程序主入口。
@@ -47,7 +47,12 @@ main(
     FILE *fp = NULL;
     bitmap_24bit_pixel pixel;
 
-    bitmap_24bit_pixel pixels[width * height];
+    // bitmap_24bit_pixel pixels[(width * height)];
+    bitmap_24bit_pixel *pixels
+            = (bitmap_24bit_pixel *) malloc(
+                sizeof(bitmap_24bit_pixel
+                    [(width * (height * 2))])
+                );
 
     int index;
 
@@ -69,6 +74,7 @@ main(
     }
 
     fclose(fp);
+    free(pixels);
 
     puts("A bitmap file has been generated in this directory.\nBye.");
 

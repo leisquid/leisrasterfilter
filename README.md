@@ -2,11 +2,11 @@
 
 ## 简介
 
+基于 [fruitsamples/SampleRaster](https://github.com/fruitsamples/SampleRaster) 的个人练手项目。
+
 一坨用来示范打印机的 CUPS Raster filter 工作流程以及将 CUPS Raster 格式转为 bitmap 格式的源文件。采用 GNU Affero General Public License (下称 AGPL 3.0) 开源。
 
-待仓库中的代码全部完成后，您可以在遵循 [AGPL 3.0](./COPYING) 的协议下用这些代码做您任何想做的事情。
-
-部分代码参考 [fruitsamples/SampleRaster](https://github.com/fruitsamples/SampleRaster)。
+目前代码还没有完全完成。待仓库中的代码全部完成后，您可以在遵循 [AGPL 3.0](./COPYING) 的协议下用这些代码做您任何想做的事情。
 
 ## 编译
 

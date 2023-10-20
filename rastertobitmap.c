@@ -30,10 +30,12 @@
 
 static int  CancelJob = 0;          /* 设为 1 时取消当前任务 */
 
+static int sread(void *dest, size_t size, size_t n, const void const* origin);
+static int swrite(const void const* origin, size_t size, size_t n, void *dest);
 static void SignalHandler(int sig);
 static int setup(bitmap_job_data_t *job);
 static int start_page(bitmap_job_data_t *job, cups_page_header2_t *header);
-static int output_line(cups_page_header2_t *header, unsigned char *line, void *output_stream);
+static int output_line(cups_page_header2_t *header, unsigned char *line, bitmap_24bit_pixel *output_stream);
 static int end_page(bitmap_job_data_t *job, cups_page_header2_t *header);
 static int rtd_shutdown(bitmap_job_data_t *job);
 
@@ -48,13 +50,17 @@ main(
     bitmap_job_data_t   job;            /* 任务数据 */
     int                 page = 0;       /* 当前页数 */
     int                 fd;             /* raster 数据的文件描述符 */
-    cups_raster_t       *ras;           /* raster 流 */
+    cups_raster_t       *ras = NULL;    /* raster 流 */
     cups_page_header2_t header;         /* 当前页头数据 */
     unsigned            y;              /* 当前行 */
-    unsigned char       *line;          /* 行缓冲 */
+    unsigned char       *line = NULL;   /* 行缓冲 */
 
-    void                *buffer;        /* 像素阵缓冲 */
-    FILE                *fp;            /* 输出文件 */
+    int                 line_count = 0,
+                        line_cached = 0;
+
+    bitmap_24bit_pixel  *buffer = NULL, /* 像素阵缓冲 */
+                        *buffer_starting_ptr = NULL;
+    FILE                *fp = NULL;     /* 输出文件 */
     char                filename[256];  /* 输出文件名 */
 
     bitmap_file_header  file_header;    /* bitmap 文件头部 */
@@ -99,12 +105,18 @@ main(
             buffer = (bitmap_24bit_pixel *) malloc(
                         sizeof(bitmap_24bit_pixel)
                         * header.cupsWidth
-                        * header.cupsHeight
+                        * (header.cupsHeight + 1024)
             ) ) == NULL
         ) {
             log_error("Error", "Unable to allocate page buffer!");
             break;
         }
+        fprintf(stderr, "malloc buffer: %ld\n",
+                        sizeof(bitmap_24bit_pixel)
+                        * header.cupsWidth
+                        * (header.cupsHeight + 1024)
+                        );
+        buffer_starting_ptr = buffer;
         if ( (
             line = (unsigned char *) malloc(
                         header.cupsBytesPerLine
@@ -115,7 +127,7 @@ main(
 
         /* 开始打印了。 */
         page ++;
-        fprintf(stderr, "PAGE: %d %d\n", page, header.NumCopies);
+        fprintf(stderr, "PAGE: %d of %d\n", page, header.NumCopies);
         log_debug("Info", "Starting page");
 
         if ( !start_page(&job, &header) ) {
@@ -131,19 +143,30 @@ main(
 
             /* 显示进度。 */
             if ( ( y & 128 ) == 0 ) {
-                fprintf(stderr, "[--] Printing page %d, %.0f%% completed\n", page, (100.0 * y / header.cupsHeight));
+                // fprintf(stderr, "[--] Printing page %d, %.0f%% completed\r", page, (100.0 * y / header.cupsHeight));
                 fflush(stderr);
             }
 
             /* 读写每一行。 */
-            if ( cupsRasterReadPixels(ras, line, header.cupsBytesPerLine) > 0 ) {
-                if ( ! output_line(&header, line, buffer) ) {
+            if (
+                (cupsRasterReadPixels(ras, line, header.cupsBytesPerLine) > 0)
+                && (line_count < header.cupsHeight)
+            ) {
+                if ( ( line_cached = output_line(&header, line, buffer) ) == 0 ) {
                     break;
                 }
+                buffer += (line_cached * header.cupsWidth);
+                line_count += line_cached;
             } else {
                 break;
             }
         }
+
+        putchar('\n');
+
+        buffer = buffer_starting_ptr;
+
+        log_debug("Info", "Okay, and we got the full raster pixels now.");
 
         /*
          * 输出 bitmap 文件。
@@ -157,12 +180,14 @@ main(
             header.cupsHeight
         );
         /* 生成文件名。 */
-        fprintf(filename, "./output/%05d.bmp", page);
+        sprintf(filename, "./output/%05d.bmp", page);
         /* 打开文件。 */
+        fprintf(stderr, "[++] Opening file: %s\n", filename);
         fp = fopen(filename, "wb");
         if ( bitmap_24bit_write(file_header, info_header, buffer, fp) != FUNCTION_SUCCESS ) {
             log_error("ERROR", "File writing failure!");
         }
+        fprintf(stderr, "[++] Closing file: %s\n", filename);
         fclose(fp);
 
         /* 释放内存。 */
@@ -189,6 +214,51 @@ main(
         return EXIT_SUCCESS;
     }
 }
+
+/*
+ * sread() - 任意流的读取函数，魔改自 fread()。
+ */
+static int                      /* 输出 - 1 成功，0 失败 */
+sread(
+    void                *dest,  /* 输入 - 目标流的指针 */
+    size_t              size,   /* 输入 - 流元数据的大小 */
+    size_t              n,      /* 输入 - 流元的个数 */
+    const void const*   origin  /* 输入 - 源流的指针 */
+) {
+    size_t  index;
+    uint8_t *output_p = (uint8_t *) dest,
+            *input_p = (uint8_t *) origin;
+    
+    for (index = 0; index < size * n; index ++) {
+        *output_p = *input_p;
+        output_p ++, input_p ++;
+    }
+
+    return FUNCTION_SUCCESS;
+}
+
+/*
+ * sread() - 任意流的写入函数，魔改自 fwrite()。
+ */
+static int/* 输出 - 1 成功，0 失败 */
+swrite(
+    const void const*   origin, /* 输入 - 源流的指针 */
+    size_t              size,   /* 输入 - 流元数据的大小 */
+    size_t              n,      /* 输入 - 流元的个数 */
+    void                *dest   /* 输入 - 目标流的指针 */
+) {
+    size_t  index;
+    uint8_t *output_p = (uint8_t *) dest,
+            *input_p = (uint8_t *) origin;
+    
+    for (index = 0; index < size * n; index ++) {
+        *output_p = *input_p;
+        output_p ++, input_p ++;
+    }
+
+    return FUNCTION_SUCCESS;
+}
+
 
 /*
  * setup() - 配置任务。
@@ -243,9 +313,10 @@ static int                              /* 输出 - 1 成功，0 失败 */
 output_line(
     cups_page_header2_t *header,        /* 输入 - 页头 */
     unsigned char       *line,          /* 输入 - Raster 数据 */
-    void                *output_stream  /* 输入 - 待写入的流指针 */
+    bitmap_24bit_pixel  *output_stream  /* 输入 - 待写入的流指针 */
 ) {
-    unsigned            num_pixels = header->cupsWidth;
+    const unsigned      num_pixels = header->cupsWidth;
+    unsigned            num_lines = 0;
     unsigned            pixels_count = 0;
     unsigned            line_repeating_count = 0,
                         run_length_count = 0;
@@ -253,29 +324,27 @@ output_line(
     uint8_t             pixel_buffer[3];
     uint16_t            pixel_48bit_buffer[3];
     bitmap_24bit_pixel  pixel;
-    bitmap_24bit_pixel  *line_buffer,
-                        *line_buffer_start_ptr;
-
-    /* 给行缓冲分配内存。 */
-    line_buffer = (bitmap_24bit_pixel *) malloc(sizeof(pixel) * num_pixels);
-    /* 记下行缓冲起始位置的地址。 */
-    line_buffer_start_ptr = line_buffer;
+    bitmap_24bit_pixel  line_buffer[num_pixels];
 
     if ( header->cupsBitsPerColor == 8 ) {  /* 色深为 8 位的情况 */
         /* 读行重复次数。 */
-        fread(&byte_buffer, sizeof(byte_buffer), 1, line);
-        line_repeating_count = byte_buffer + 1;
+        sread(&byte_buffer, sizeof(byte_buffer), 1, line);
+        line ++;
+        num_lines = byte_buffer + 1;
+        line_repeating_count = num_lines;
         /* 读写一个行的数据。 */
         do {
             /* 读游离计数。 */
-            fread(&byte_buffer, sizeof(byte_buffer), 1, line);
+            sread(&byte_buffer, sizeof(byte_buffer), 1, line);
+            line ++;
             run_length_count = byte_buffer;
             /* 判断游离编码模式还是点连续写入模式。 */
             if (run_length_count >= 0 && run_length_count < 128) {
                 /* 游离编码模式，确定重复像素个数。 */
                 run_length_count ++;
                 /* 读一个像素。 */
-                fread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
+                sread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
+                line += sizeof(pixel_buffer);
                 /* 将读到的 raster 像素转为 bitmap 像素。 */
                 set_24bit_pixel_color(
                     &pixel,
@@ -286,7 +355,7 @@ output_line(
                 /* 写入重复像素。 */
                 while (run_length_count > 0) {
                     /* 写这个像素。 */
-                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    swrite( &pixel, sizeof(pixel), 1, &(line_buffer[pixels_count]) );
                     run_length_count --;
                     pixels_count ++;
                 }
@@ -296,7 +365,8 @@ output_line(
                 /* 写入连续像素。 */
                 while (run_length_count > 0) {
                     /* 读一个像素。 */
-                    fread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
+                    sread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
+                    line += sizeof(pixel_buffer);
                     /* 将读到的 raster 像素转为 bitmap 像素。 */
                     set_24bit_pixel_color(
                         &pixel,
@@ -305,7 +375,7 @@ output_line(
                         pixel_buffer[2]
                     );
                     /* 写这个像素。 */
-                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    swrite( &pixel, sizeof(pixel), 1, &(line_buffer[pixels_count]) );
                     run_length_count --;
                     pixels_count ++;
                 }
@@ -313,8 +383,10 @@ output_line(
         } while ( pixels_count < num_pixels );
         /* 一行读完了，开始向流写入数据。 */
         while ( line_repeating_count > 0 ) {
-            line_buffer = line_buffer_start_ptr;    /* 行缓冲指针回到开头 */
-            fwrite(line_buffer, sizeof(pixel) * num_pixels, 1, output_stream);
+            // fprintf(stderr, "-%d-", line_repeating_count);
+            swrite(line_buffer, sizeof(bitmap_24bit_pixel) * num_pixels, 1, output_stream);
+            output_stream += num_pixels;
+            line_repeating_count --;
         }
     } else {
         /*
@@ -330,19 +402,23 @@ output_line(
          */
 
         /* 读行重复次数。 */
-        fread(&byte_buffer, sizeof(byte_buffer), 1, line);
-        line_repeating_count = byte_buffer + 1;
+        sread(&byte_buffer, sizeof(byte_buffer), 1, line);
+        line ++;
+        num_lines = byte_buffer + 1;
+        line_repeating_count = num_lines;
         /* 读写一个行的数据。 */
         do {
             /* 读游离计数。 */
-            fread(&byte_buffer, sizeof(byte_buffer), 1, line);
+            sread(&byte_buffer, sizeof(byte_buffer), 1, line);
+            line ++;
             run_length_count = byte_buffer;
             /* 判断游离编码模式还是点连续写入模式。 */
             if (run_length_count >= 0 && run_length_count < 128) {
                 /* 游离编码模式，确定重复像素个数。 */
                 run_length_count ++;
                 /* 读一个 48 位像素。 */
-                fread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
+                sread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
+                line += sizeof(pixel_48bit_buffer);
                 /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
                 set_24bit_pixel_color(
                     &pixel,
@@ -353,7 +429,7 @@ output_line(
                 /* 写入重复像素。 */
                 while (run_length_count > 0) {
                     /* 写这个像素。 */
-                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    swrite( &pixel, sizeof(pixel), 1, &(line_buffer[pixels_count]) );
                     run_length_count --;
                     pixels_count ++;
                 }
@@ -363,7 +439,8 @@ output_line(
                 /* 写入连续像素。 */
                 while (run_length_count > 0) {
                     /* 读一个 48 位像素。 */
-                    fread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
+                    sread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
+                    line += sizeof(pixel_48bit_buffer);
                     /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
                     set_24bit_pixel_color(
                         &pixel,
@@ -372,7 +449,7 @@ output_line(
                         ( ( pixel_48bit_buffer[2] + 129) / 257 )
                     );
                     /* 写这个像素。 */
-                    fwrite(&pixel, sizeof(pixel), 1, line_buffer);
+                    swrite( &pixel, sizeof(pixel), 1, &(line_buffer[pixels_count]) );
                     run_length_count --;
                     pixels_count ++;
                 }
@@ -380,15 +457,13 @@ output_line(
         } while ( pixels_count < num_pixels );
         /* 一行读完了，开始向流写入数据。 */
         while ( line_repeating_count > 0 ) {
-            line_buffer = line_buffer_start_ptr;    /* 行缓冲指针回到开头 */
-            fwrite(line_buffer, sizeof(pixel) * num_pixels, 1, output_stream);
+            swrite(line_buffer, sizeof(bitmap_24bit_pixel) * num_pixels, 1, output_stream);
+            output_stream +=  num_pixels;
             line_repeating_count --;
         }
     }
-    /* 释放行缓冲。 */
-    free(line_buffer);
 
-    return FUNCTION_SUCCESS;
+    return num_lines;
 }
 
 /*
@@ -399,7 +474,7 @@ end_page(                       /* 输出 - 1 成功，0 失败 */
     bitmap_job_data_t   *job,   /* 输入 - 任务数据 */
     cups_page_header2_t *header /* 输入 - 页头 */
 ) {
-    fprintf(stderr, "END_OF_PAGE");
+    fprintf(stderr, "END_OF_PAGE\n");
     return FUNCTION_SUCCESS;
 }
 
@@ -409,7 +484,7 @@ end_page(                       /* 输出 - 1 成功，0 失败 */
 static int rtd_shutdown(        /* 输出 - 1 成功，0 失败 */
     bitmap_job_data_t   *job    /* 输入 - 任务数据 */
 ) {
-    fprintf(stderr, "END_OF_DOCUMENT");
+    fprintf(stderr, "END_OF_DOCUMENT\n");
     return FUNCTION_SUCCESS;
 }
 
