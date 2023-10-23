@@ -224,11 +224,11 @@ pixel_24bit_matrix_upsidedown(
     for ( index = 0; ( (height - 1 - index) > index ); index ++ ) {
         for ( jndex = 0; jndex < width; jndex ++ ) {
             /* i 行写缓冲 */
-            line_buffer = pixels[ index * width + jndex ];
+            line_buffer = *(pixels + index * width + jndex);
             /* (n - 1 - i) 行写 i 行 */
-            pixels[ index * width + jndex ] = pixels[ (height - 1 - index) + jndex ];
+            *(pixels + index * width + jndex) = *(pixels + (height - 1 - index) * width + jndex);
             /* 缓冲写 (n - 1 - i) 行 */
-            pixels[ (height - 1 - index) + jndex ] = line_buffer;
+            *(pixels + (height - 1 - index) * width + jndex) = line_buffer;
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * rastertobitmap.c - a source code file of Leisrasterfilter
+ * rastertobitmapfile.c - a source code file of Leisrasterfilter
  * Copyright (c) 2023 Leisquid Li.
  *
  * This file is part of Leisrasterfilter.
@@ -62,7 +62,7 @@ main(
 
     bitmap_24bit_pixel  *buffer = NULL, /* 像素阵缓冲 */
                         *buffer_starting_ptr = NULL;
-    // FILE                *fp = NULL;     /* 输出文件 */
+    FILE                *fp = NULL;     /* 输出文件 */
     char                filename[256];  /* 输出文件名 */
 
     bitmap_file_header  file_header;    /* bitmap 文件头部 */
@@ -174,11 +174,16 @@ main(
             header.cupsWidth,
             header.cupsHeight
         );
-
-        /* 输出到标准输出。 */
-        if ( bitmap_24bit_write(file_header, info_header, buffer, stdout) != FUNCTION_SUCCESS ) {
-            log_error("ERROR", "Output failure!");
+        /* 生成文件名。 */
+        sprintf(filename, "./output/%05d.bmp", page);
+        /* 打开文件。 */
+        fprintf(stderr, "[++] Opening file: %s\n", filename);
+        fp = fopen(filename, "wb");
+        if ( bitmap_24bit_write(file_header, info_header, buffer, fp) != FUNCTION_SUCCESS ) {
+            log_error("ERROR", "File writing failure!");
         }
+        fprintf(stderr, "[++] Closing file: %s\n", filename);
+        fclose(fp);
 
         /* 释放内存。 */
         free(buffer);

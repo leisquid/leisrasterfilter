@@ -6,12 +6,32 @@
 
 一坨用来示范打印机的 CUPS Raster filter 工作流程以及将 CUPS Raster 格式转为 bitmap 格式的源文件。采用 GNU Affero General Public License (下称 AGPL 3.0) 开源。
 
-目前代码还没有完全完成。待仓库中的代码全部完成后，您可以在遵循 [AGPL 3.0](./COPYING) 的协议下用这些代码做您任何想做的事情。
+目前代码已经基本完成。您可以在遵循 [AGPL 3.0](./COPYING) 的协议下用这些代码做您任何想做的事情。
 
 ## 编译
 
 ```sh
 gcc -g `cups-config --cflags` ./rastertosample.c ./common.c `cups-config --libs` -o ./rastertosample
+```
+
+```sh
+gcc -g `cups-config --cflags` ./bitmap.c ./rastertobitmap.c `cups-config --libs` -o ./rastertobitmap
+```
+
+```sh
+gcc -g `cups-config --cflags` ./bitmap.c ./rastertobitmapfile.c `cups-config --libs` -o ./rastertobitmapfile
+```
+
+## 使用方法
+
+`sample.h`, `common.c`, `rastertosample.c` 为一组源文件，其功能是将 raster 文件的内容输出到标准输出。
+
+`bitmap.h`, `bitmap.c`, `rastertobitmap.c`, `rastertobitmapfile.c` 为一组源文件，其功能是将 raster 文件转换为 bitmap 格式；`rastertobitmap` 会将转换后的内容输出到标准输出，`rastertobitmapfile` 会直接将转换后的内容输出到文件。
+
+可用的命令示例：
+
+```sh
+./rastertobitmap 114514 lit test - - ./rabbit.cupsraster > ./rabbit.bmp
 ```
 
 ## 免责说明
@@ -30,6 +50,10 @@ gcc -g `cups-config --cflags` ./rastertosample.c ./common.c `cups-config --libs`
 
 ## 更新履历
 
+### 23.10.23 v1.0
+
+已完成代码的编写及测试，可以使用。
+
 ### 23.10.10
 
 开始软件试作。目前所有的代码均为未完工状态。
@@ -40,4 +64,4 @@ Leisquid Li
 
 2023.10.10
 
-更新于 23.10.19
+更新于 23.10.23
