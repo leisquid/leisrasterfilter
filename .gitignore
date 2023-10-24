@@ -7,3 +7,5 @@ output.txt
 output/*
 rastertobitmap
 rastertobitmapfile
+bitmap_test_2
+test_wb.bmp

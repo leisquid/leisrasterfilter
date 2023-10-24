@@ -86,7 +86,7 @@ typedef struct {
 
 /*
  * bitmap 调色板信息。
- * 当位图的色深小于等于 8 时，文件头部必须带有调色板信息数据。
+ * 当位图的色深 <= 8 时，文件头部必须带有调色板信息数据。
  */
 typedef struct {
     uint8_t     bp_blue;        /* 蓝色像素值 */
@@ -103,6 +103,20 @@ typedef struct {
     uint8_t     b24p_green; /* 绿色像素值 */
     uint8_t     b24p_red;   /* 红色像素值 */
 } __attribute__ ((packed)) bitmap_24bit_pixel;
+
+/*
+ * bitmap 8 位像素点信息。
+ */
+typedef struct {
+    uint8_t     b8p_value;
+} bitmap_8bit_pixel;
+
+/*
+ * bitmap 8 位调色板信息。
+ */
+typedef struct {
+    bitmap_palette   indexes[0x100];
+} bitmap_8bit_palette;
 
 /* 
  * 任务数据。
@@ -121,8 +135,14 @@ typedef struct {
 
 extern int init_24bit_header(bitmap_file_header *file_header, bitmap_info_header *info_header, unsigned width, unsigned height);
 extern int set_24bit_pixel_color(bitmap_24bit_pixel *pixel, uint8_t red, uint8_t green, uint8_t blue);
-extern int bitmap_24bit_write(bitmap_file_header file_header, bitmap_info_header info_header, bitmap_24bit_pixel *pixels, void *fp);
+extern int bitmap_24bit_write(bitmap_file_header file_header, bitmap_info_header info_header, bitmap_24bit_pixel *pixels, FILE *fp);
 extern int pixel_24bit_matrix_upsidedown(bitmap_24bit_pixel *pixels, unsigned width, unsigned height);
+
+extern int init_8bit_header(bitmap_file_header *file_header, bitmap_info_header *info_header, unsigned width, unsigned height);
+extern int init_8bit_w_palette(bitmap_8bit_palette *palette);
+extern int set_8bit_pixel_color(bitmap_8bit_pixel *pixel, uint8_t value);
+extern int bitmap_8bit_write(bitmap_file_header file_header, bitmap_info_header info_header, bitmap_8bit_palette palette, bitmap_8bit_pixel *pixels, FILE *fp);
+extern int pixel_8bit_matrix_upsidedown(bitmap_8bit_pixel *pixels, unsigned width, unsigned height);
 
 extern void log_error(char *type, char *content);
 extern void log_debug(char *type, char *content);

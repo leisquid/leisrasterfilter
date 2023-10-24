@@ -26,6 +26,9 @@
 
 #include "bitmap.h"
 
+/* bitmap 内容数据中，要求每行的字节数是 4 的倍数，这是用于填充空白部分的随机信息。 */
+static char str_to_fill[3] = {70, 82, 76};
+
 /*
  * 打算把所有的 log 信息都输出在 stderr，以免标准输出流被重定向到文件或其他位置时
  * 输出无关信息。
@@ -54,6 +57,38 @@ log_debug(              /* 输出 - void */
 }
 
 /*
+ * init_job() - 模拟一个打印服务器，初始化一个打印任务。
+ */
+int                                 /* 输出 - 1 成功，0 失败 */
+init_job(
+    int                 argc,       /* 输入 - 从 main() 传过来的参数个数 */
+    char                *argv[],    /* 输入 - 从 main() 传过来的参数内容 */
+    bitmap_job_data_t   *job        /* 输入 - 一个任务对象 */
+) {
+    int i;
+
+    /* 检查命令行参数个数。 */
+    if ( argc < 6 ) {
+        log_error("Error", "Arguments wrong!");
+        fprintf(stderr, "argc = %d\n", argc);
+        for ( i = 0; i < argc; i ++ ) {
+            fprintf(stderr, "argv[%d] = %s\n", i, argv[i]);
+        }
+        /*                    0  1    2     3   4 5  6                  */
+        fprintf(stderr, "用法：%s 任务 用户名 标题 选项 [文件名]\n", argv[0]);
+        return FUNCTION_FAILURE;
+    }
+
+    /* 解析选项。 */
+    job->job_id = atoi(argv[1]);
+    job->user = argv[2];
+    job->title = argv[3];
+    job->num_options = cupsParseOptions(argv[5], 0, &( job->options ));
+
+    return FUNCTION_SUCCESS;
+}
+
+/*
  * 讲点有意思的：
  * 1. bitmap 每行的像素数据是从下到上排列的。
  * 2. 在 bitmap 内容数据中，每行数据的字节数是 4 的倍数。
@@ -75,8 +110,8 @@ init_24bit_header(      /* 输出 - 1 成功, 0 失败 */
     file_header->bf_type = BITMAP_FILE_TYPE_LE;
     file_header->bf_size = sizeof(bitmap_file_header)
                          + sizeof(bitmap_info_header)
-                         + sizeof(bitmap_24bit_pixel) * width * height
-                         + width_to_fill * height;
+                         + sizeof(bitmap_24bit_pixel)
+                           * (width + width_to_fill) * height;
     file_header->bf_reserved1 = BITMAP_FILE_RESERVED1;
     file_header->bf_reserved2 = BITMAP_FILE_RESERVED2;
     file_header->bf_offset = sizeof(bitmap_file_header) + sizeof(bitmap_info_header);
@@ -87,7 +122,7 @@ init_24bit_header(      /* 输出 - 1 成功, 0 失败 */
     info_header->bi_color_plane = BITMAP_INFO_DEFAULT_COLOR_PLANE;
     info_header->bi_bit_size = 24;
     info_header->bi_compression = BITMAP_INFO_NON_COMPRESSION;
-    info_header->bi_data_size = sizeof(bitmap_24bit_pixel) * width * height + width_to_fill * height;
+    info_header->bi_data_size = sizeof(bitmap_24bit_pixel) * (width + width_to_fill) * height;
     info_header->bi_x_res = BITMAP_INFO_DEFAULT_X_RES;
     info_header->bi_y_res = BITMAP_INFO_DEFAULT_Y_RES;
     info_header->bi_color_index = BITMAP_INFO_DEFAULT_COLOR_INDEX;
@@ -122,18 +157,14 @@ bitmap_24bit_write(
     bitmap_file_header  file_header,    /* 输入 - 文件头部信息 */
     bitmap_info_header  info_header,    /* 输入 - 位图头部信息 */
     bitmap_24bit_pixel  *pixels,        /* 输入 - 像素点阵 */
-    void                *fp             /* 输入 - 待写入的流指针 */
+    FILE                *fp             /* 输入 - 待写入的流指针 */
 ) {
     int                 failure = FUNCTION_SUCCESS;
-
-    /* bitmap 内容数据中，要求每行的字节数是 4 的倍数，这是用于填充空白部分的随机信息。 */
-    char                str_to_fill[3] = {70, 82, 76};
 
     unsigned            width = info_header.bi_width;
     unsigned            height = info_header.bi_height;
     unsigned long long  bytes_count = 0;
-    unsigned            index;
-    unsigned            jndex;  /* （笑） */
+    unsigned            index, jndex;   /* （笑） */
 
     if ( fwrite(&file_header, sizeof(bitmap_file_header), 1, fp) != 1 ) {
         failure = FUNCTION_FAILURE;
@@ -156,7 +187,12 @@ bitmap_24bit_write(
                 break;
             }
 
-            if ( fwrite(&(pixels[index * width + jndex]), sizeof(bitmap_24bit_pixel), 1, fp) != 1 ) {
+            if ( fwrite(
+                        &(pixels[index * width + jndex]),
+                        sizeof(bitmap_24bit_pixel),
+                        1,
+                        fp
+                ) != 1 ) {
                 failure = FUNCTION_FAILURE;
             } else {
                 bytes_count += sizeof(bitmap_24bit_pixel);
@@ -176,41 +212,9 @@ bitmap_24bit_write(
 }
 
 /*
- * init_job() - 模拟一个打印服务器，初始化一个打印任务。
- */
-int                                 /* 输出 - 1 成功，0 失败 */
-init_job(
-    int                 argc,       /* 输入 - 从 main() 传过来的参数个数 */
-    char                *argv[],    /* 输入 - 从 main() 传过来的参数内容 */
-    bitmap_job_data_t   *job        /* 输入 - 一个任务对象 */
-) {
-    int i;
-
-    /* 检查命令行参数个数。 */
-    if ( argc != 7 ) {
-        log_error("Error", "Arguments wrong!");
-        fprintf(stderr, "argc = %d\n", argc);
-        for ( i = 0; i < argc; i ++ ) {
-            fprintf(stderr, "argv[%d] = %s\n", i, argv[i]);
-        }
-        /*                    0  1    2     3   4 5  6                  */
-        fprintf(stderr, "用法：%s 任务 用户名 标题 选项 [文件名]\n", argv[0]);
-        return FUNCTION_FAILURE;
-    }
-
-    /* 解析选项。 */
-    job->job_id = atoi(argv[1]);
-    job->user = argv[2];
-    job->title = argv[3];
-    job->num_options = cupsParseOptions(argv[5], 0, &( job->options ));
-
-    return FUNCTION_SUCCESS;
-}
-
-/*
- * pixel_matrix_upsidedown() - 将像素阵上下颠倒，
- *                             因为 raster 的行像素是从上到下排列的，
- *                             而 bitmap 相反。
+ * pixel_24bit_matrix_upsidedown() - 将 24 bit 像素阵上下颠倒，
+ *                                   因为 raster 的行像素是从上到下排列的，
+ *                                   而 bitmap 相反。
  */
 int
 pixel_24bit_matrix_upsidedown(
@@ -219,6 +223,155 @@ pixel_24bit_matrix_upsidedown(
     unsigned            height
 ) {
     bitmap_24bit_pixel  line_buffer;
+    unsigned            index, jndex;
+
+    for ( index = 0; ( (height - 1 - index) > index ); index ++ ) {
+        for ( jndex = 0; jndex < width; jndex ++ ) {
+            /* i 行写缓冲 */
+            line_buffer = *(pixels + index * width + jndex);
+            /* (n - 1 - i) 行写 i 行 */
+            *(pixels + index * width + jndex) = *(pixels + (height - 1 - index) * width + jndex);
+            /* 缓冲写 (n - 1 - i) 行 */
+            *(pixels + (height - 1 - index) * width + jndex) = line_buffer;
+        }
+    }
+
+    return FUNCTION_SUCCESS;
+}
+
+int
+init_8bit_header(
+    bitmap_file_header *file_header,
+    bitmap_info_header *info_header,
+    unsigned width,
+    unsigned height
+) {
+    /* 计算出每行缺少的字符数。 */
+    int width_to_fill = ( (width % 4)? (4 - (width % 4)): 0 );
+
+    file_header->bf_type = BITMAP_FILE_TYPE_LE;
+    file_header->bf_size = sizeof(bitmap_file_header)
+                         + sizeof(bitmap_info_header)
+                         + sizeof(bitmap_8bit_pixel)
+                           * (width + width_to_fill) * height;
+    file_header->bf_reserved1 = BITMAP_FILE_RESERVED1;
+    file_header->bf_reserved2 = BITMAP_FILE_RESERVED2;
+    file_header->bf_offset = sizeof(bitmap_file_header) + sizeof(bitmap_info_header) + sizeof(bitmap_8bit_palette);
+
+    info_header->bi_header_size = sizeof(bitmap_info_header);
+    info_header->bi_width = width;
+    info_header->bi_height = height;
+    info_header->bi_color_plane = BITMAP_INFO_DEFAULT_COLOR_PLANE;
+    info_header->bi_bit_size = 8;
+    info_header->bi_compression = BITMAP_INFO_NON_COMPRESSION;
+    info_header->bi_data_size = sizeof(bitmap_8bit_pixel) * (width + width_to_fill) * height;
+    info_header->bi_x_res = BITMAP_INFO_DEFAULT_X_RES;
+    info_header->bi_y_res = BITMAP_INFO_DEFAULT_Y_RES;
+    info_header->bi_color_index = 0x100;
+    info_header->bi_color_important = 0x100;
+
+    return FUNCTION_SUCCESS;
+}
+
+int
+init_8bit_w_palette(
+    bitmap_8bit_palette *palette
+) {
+    int index;
+
+    for (index = 0; index < 0x100; index ++) {
+        palette->indexes[index].bp_blue     = index;
+        palette->indexes[index].bp_green    = index;
+        palette->indexes[index].bp_red      = index;
+        palette->indexes[index].bp_reserved = 0;
+    }
+
+    return FUNCTION_SUCCESS;
+}
+
+int
+set_8bit_pixel_color(
+    bitmap_8bit_pixel *pixel,
+    uint8_t value
+) {
+    pixel->b8p_value = value;
+
+    return FUNCTION_SUCCESS;
+}
+
+int
+bitmap_8bit_write(
+    bitmap_file_header  file_header,
+    bitmap_info_header  info_header,
+    bitmap_8bit_palette palette,
+    bitmap_8bit_pixel   *pixels,
+    FILE                *fp
+) {
+    int                 failure = FUNCTION_SUCCESS;
+
+    unsigned            width = info_header.bi_width;
+    unsigned            height = info_header.bi_height;
+    unsigned long long  bytes_count = 0;
+    unsigned            index, jndex;
+
+    if ( fwrite(&file_header, sizeof(bitmap_file_header), 1, fp) != 1 ) {
+        failure = FUNCTION_FAILURE;
+        return failure;
+    }
+
+    if ( fwrite(&info_header, sizeof(bitmap_info_header), 1, fp) != 1 ) {
+        failure = FUNCTION_FAILURE;
+        return failure;
+    }
+
+    if ( fwrite(&palette, sizeof(bitmap_8bit_palette), 1, fp) != 1 ) {
+        failure = FUNCTION_FAILURE;
+        return failure;
+    }
+
+    for ( index = 0 ; index < height; index ++ ) {
+        if ( failure == FUNCTION_FAILURE ) {
+            break;
+        }
+
+        /* 写一行。 */
+        for ( jndex = 0; jndex < width; jndex ++ ) {
+            if ( failure == FUNCTION_FAILURE ) {
+                break;
+            }
+
+            if ( fwrite(
+                        &(pixels[index * width + jndex]),
+                        sizeof(bitmap_8bit_pixel),
+                        1,
+                        fp
+                ) != 1 ) {
+                    failure = FUNCTION_FAILURE;
+            } else {
+                bytes_count += sizeof(bitmap_8bit_pixel);
+            }
+        }
+
+        while ( bytes_count % 4 != 0 ) {
+            if ( fwrite(&(str_to_fill[bytes_count % 4 - 1]), sizeof(char), 1, fp) != 1 ) {
+                failure = FUNCTION_FAILURE;
+            } else {
+                bytes_count += sizeof(char);
+            }
+        }
+    }
+
+    return failure;
+}
+
+int
+pixel_8bit_matrix_upsidedown(
+    bitmap_8bit_pixel   *pixels,
+    unsigned            width,
+    unsigned            height
+) {
+
+    bitmap_8bit_pixel   line_buffer;
     unsigned            index, jndex;
 
     for ( index = 0; ( (height - 1 - index) > index ); index ++ ) {

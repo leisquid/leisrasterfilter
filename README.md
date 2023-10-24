@@ -1,5 +1,7 @@
 # Leisrasterfilter
 
+![](./img/leisrasterfilter.png)
+
 ## 简介
 
 基于 [fruitsamples/SampleRaster](https://github.com/fruitsamples/SampleRaster) 的个人练手项目。
@@ -31,8 +33,14 @@ gcc -g `cups-config --cflags` ./bitmap.c ./rastertobitmapfile.c `cups-config --l
 可用的命令示例：
 
 ```sh
-./rastertobitmap 114514 lit test - - ./rabbit.cupsraster > ./rabbit.bmp
+./rastertobitmap 114514 lit test - - ./tiger.cupsraster > ./tiger.bmp
 ```
+
+## 已知缺陷
+
+1. 未在 Linux x86_64 以外的平台进行测试。
+
+2. 不支持非 8、16 位深，以及 RGB、SRGB、W 以外的色彩空间。
 
 ## 免责说明
 
@@ -50,6 +58,18 @@ gcc -g `cups-config --cflags` ./bitmap.c ./rastertobitmapfile.c `cups-config --l
 
 ## 更新履历
 
+### 程序员节, 2023 v2.0
+
+1. 重写部分逻辑代码。
+
+2. 去除部分无用功能。
+
+其实开发者无需重写 CUPS Raster Ver 2 格式的解压算法，因为这一切让 CUPS 库实现了。
+
+3. 增加对 8 位灰度图片的支持。
+
+4. 优化进程通信，可以通过管道将 Raster 流数据传输到程序。
+
 ### 23.10.23 v1.0
 
 已完成代码的编写及测试，可以使用。
@@ -64,4 +84,4 @@ Leisquid Li
 
 2023.10.10
 
-更新于 23.10.23
+更新于 程序员节, 2023

@@ -29,14 +29,15 @@
 #include <signal.h>
 
 static int  CancelJob = 0;          /* 设为 1 时取消当前任务 */
+static int  ColorMode = 0;          /* 颜色模式，设为 1 时为彩色 */
 
 static int sread(void *dest, size_t size, size_t n, const void const* origin);
 static int swrite(const void const* origin, size_t size, size_t n, void *dest);
 static void SignalHandler(int sig);
 static int setup(bitmap_job_data_t *job);
 static int start_page(bitmap_job_data_t *job, cups_page_header2_t *header);
-static int output_line(cups_page_header2_t *header, unsigned char *line, bitmap_24bit_pixel *output_stream);
-static int output_line_v3(cups_page_header2_t *header, unsigned char *line, bitmap_24bit_pixel *output_stream);
+static int output_line_color(cups_page_header2_t *header, unsigned char *line, bitmap_24bit_pixel *output_stream);
+static int output_line_bw(cups_page_header2_t *header, unsigned char *line, bitmap_8bit_pixel *output_stream);
 static int end_page(bitmap_job_data_t *job, cups_page_header2_t *header);
 static int rtd_shutdown(bitmap_job_data_t *job);
 
@@ -60,10 +61,10 @@ main(
     int                 line_count = 0,
                         line_cached = 0;
 
-    bitmap_24bit_pixel  *buffer = NULL, /* 像素阵缓冲 */
+    bitmap_8bit_palette b8_palette;
+
+    void                *buffer = NULL, /* 像素阵缓冲 */
                         *buffer_starting_ptr = NULL;
-    // FILE                *fp = NULL;     /* 输出文件 */
-    char                filename[256];  /* 输出文件名 */
 
     bitmap_file_header  file_header;    /* bitmap 文件头部 */
     bitmap_info_header  info_header;    /* bitmap 位图头部 */
@@ -85,13 +86,13 @@ main(
     }
 
     /* 打开 raster 流。 */
-    if ( argc >= 6 ) {
+    if ( argc >= 7 ) {
         if ( ( fd = open(argv[6], O_RDONLY) ) == -1 ) {
             log_error("Error", "Unable to open raster file!");
             return EXIT_FAILURE;
         }
     } else {
-        fd = 0;
+        fd = 0;     /* 从标准输入读入 */
     }
     ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
 
@@ -102,16 +103,38 @@ main(
             break;
         }
 
-        /* 分配页缓冲内存和行内存。 */
-        if ( (
-            buffer = (bitmap_24bit_pixel *) malloc(
-                        sizeof(bitmap_24bit_pixel)
-                        * header.cupsWidth
-                        * (header.cupsHeight + 1024)
-            ) ) == NULL
-        ) {
-            log_error("Error", "Unable to allocate page buffer!");
+        /* 开始打印了。 */
+        page ++;
+        fprintf(stderr, "PAGE: %d of %d\n", page, header.NumCopies);
+        log_debug("Info", "Starting page");
+
+        if ( !start_page(&job, &header) ) {
             break;
+        }
+
+        /* 分配页缓冲内存和行内存。 */
+        if (ColorMode == 1) {
+            if ( (
+                buffer = (bitmap_24bit_pixel *) malloc(
+                            sizeof(bitmap_24bit_pixel)
+                            * header.cupsWidth
+                            * (header.cupsHeight + 1024)
+                ) ) == NULL
+            ) {
+                log_error("Error", "Unable to allocate color page buffer!");
+                break;
+            }
+        } else {
+            if ( (
+                buffer = (bitmap_8bit_pixel *) malloc(
+                            sizeof(bitmap_8bit_pixel)
+                            * header.cupsWidth
+                            * (header.cupsHeight + 1024)
+                ) ) == NULL
+            ) {
+                log_error("Error", "Unable to allocate b/w page buffer!");
+                break;
+            }
         }
         buffer_starting_ptr = buffer;
         if ( (
@@ -119,15 +142,6 @@ main(
                         header.cupsBytesPerLine
             ) ) == NULL ) {
             log_error("Error", "Unable to allocate line memory!");
-            break;
-        }
-
-        /* 开始打印了。 */
-        page ++;
-        fprintf(stderr, "PAGE: %d of %d\n", page, header.NumCopies);
-        log_debug("Info", "Starting page");
-
-        if ( !start_page(&job, &header) ) {
             break;
         }
 
@@ -149,11 +163,19 @@ main(
                 (cupsRasterReadPixels(ras, line, header.cupsBytesPerLine) > 0)
                 // && (line_count < header.cupsHeight)
             ) {
-                if ( ( line_cached = output_line_v3(&header, line, buffer) ) == 0 ) {
-                    break;
+                if ( ColorMode == 1 ) {
+                    if ( ( line_cached = output_line_color(&header, line, buffer) ) == 0 ) {
+                        break;
+                    }
+                    buffer += ( line_cached * header.cupsWidth  * sizeof(bitmap_24bit_pixel) );
+                    line_count += line_cached;
+                } else {
+                    if ( ( line_cached = output_line_bw(&header, line, buffer) ) == 0 ) {
+                        break;
+                    }
+                    buffer += ( line_cached * header.cupsWidth  * sizeof(bitmap_8bit_pixel) );
+                    line_count += line_cached;
                 }
-                buffer += (line_cached * header.cupsWidth);
-                line_count += line_cached;
             } else {
                 break;
             }
@@ -166,18 +188,32 @@ main(
         /*
          * 输出 bitmap 文件。
          */
-        /* 对像素阵做上下反转处理。 */
-        pixel_24bit_matrix_upsidedown(buffer, header.cupsWidth, header.cupsHeight);
-        init_24bit_header(
-            &file_header,
-            &info_header,
-            header.cupsWidth,
-            header.cupsHeight
-        );
-
-        /* 输出到标准输出。 */
-        if ( bitmap_24bit_write(file_header, info_header, buffer, stdout) != FUNCTION_SUCCESS ) {
-            log_error("ERROR", "Output failure!");
+        if ( ColorMode == 1 ) {
+            /* 对像素阵做上下反转处理。 */
+            pixel_24bit_matrix_upsidedown(buffer, header.cupsWidth, header.cupsHeight);
+            init_24bit_header(
+                &file_header,
+                &info_header,
+                header.cupsWidth,
+                header.cupsHeight
+            );
+            /* 输出到文件。 */
+            if ( bitmap_24bit_write(file_header, info_header, buffer, stdout) != FUNCTION_SUCCESS ) {
+                log_error("ERROR", "Output failure!");
+            }
+        } else {
+            init_8bit_w_palette(&b8_palette);
+            pixel_8bit_matrix_upsidedown(buffer, header.cupsWidth, header.cupsHeight);
+            init_8bit_header(
+                &file_header,
+                &info_header,
+                header.cupsWidth,
+                header.cupsHeight
+            );
+            /* 输出到文件。 */
+            if ( bitmap_8bit_write(file_header, info_header, b8_palette, buffer, stdout) != FUNCTION_SUCCESS ) {
+                log_error("ERROR", "Output failure!");
+            }
         }
 
         /* 释放内存。 */
@@ -290,6 +326,21 @@ start_page(                     /* 输出 - 1 成功，0 失败 */
         return FUNCTION_FAILURE;
     }
 
+    if (
+        header->cupsColorSpace == CUPS_CSPACE_W
+    ) {
+        ColorMode = 0;
+        if ( ! ColorMode ) {
+            log_debug("Info", "Color Mode has been disabled.");
+        }
+    } else {
+        log_debug("Info", "It has color!");
+        ColorMode = 1;
+        if ( ColorMode ) {
+            log_debug("Info", "Color Mode has been enabled.");
+        }
+    }
+
     /* 输出页面设置指令。 */
     fprintf(stderr, "PAGE %u %u %u %u\n", header->Margins[0], header->Margins[1], header->PageSize[0], header->PageSize[1]);
     fprintf(stderr, "RASTER %u %u %u\n", header->cupsWidth, header->cupsHeight, header->cupsNumColors);
@@ -298,168 +349,106 @@ start_page(                     /* 输出 - 1 成功，0 失败 */
 }
 
 /*
- * output_line() - 输出一行的 raster 数据，但是 V2 版本，有压缩的。
+ * output_line_color() - 输出一行的 raster 数据，但是 V3 版本，无压缩的。
  */
 static int                              /* 输出 - 1 成功，0 失败 */
-output_line(
+output_line_color(
     cups_page_header2_t *header,        /* 输入 - 页头 */
     unsigned char       *line,          /* 输入 - Raster 数据 */
     bitmap_24bit_pixel  *output_stream  /* 输入 - 待写入的流指针 */
 ) {
     const unsigned      num_pixels = header->cupsWidth;
-    unsigned            num_lines = 0,
-                        pixels_count = 0,
-                        line_repeating_count = 0,
-                        run_length_count = 0,
-                        bytes_count = 0;
+    unsigned            pixels_count = 0
+    // ,                   bytes_count = 0
+    ;
     uint8_t             byte_buffer;
     uint8_t             pixel_buffer[3];
     uint16_t            pixel_48bit_buffer[3];
     bitmap_24bit_pixel  pixel;
     bitmap_24bit_pixel  line_buffer[num_pixels];
 
-    /* 读行重复次数。 */
-    sread(&byte_buffer, sizeof(byte_buffer), 1, line ++);
-    /**/bytes_count ++;
-    num_lines = byte_buffer + 1;
-    line_repeating_count = num_lines;
-    /* 读写一个行的数据。 */
     do {
-        /* 读游离计数。 */
-        sread(&byte_buffer, sizeof(byte_buffer), 1, line ++);
-        /**/bytes_count ++;
-        run_length_count = byte_buffer;
-        /* 判断游离编码模式还是点连续写入模式。 */
-        if ( run_length_count >= 0 && run_length_count < 128 ) {
-            /* 游离编码模式，确定重复像素个数。 */
-            run_length_count ++;
-            if ( header->cupsBitsPerColor == 8 ) {
-                /* 读一个像素。 */
-                sread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
-                line += sizeof(pixel_buffer);
-                /**/bytes_count += sizeof(pixel_buffer);
-                /* 将读到的 raster 像素转为 bitmap 像素。 */
-                set_24bit_pixel_color(
-                    &pixel,
-                    pixel_buffer[0],
-                    pixel_buffer[1],
-                    pixel_buffer[2]
-                );
-            } else {
-                /*
-                * 假设其他情况都是 16 位色深。通常是要做抖动处理的，但是这里只将 48 位 RGB
-                * 数据转为 24 位。
-                *
-                * 这个公式：
-                *     (*pixel + 129) / 257
-                * 将 16 位像素值截断为近似的 8 位值 ("+ 129") 并从 16 位转为 8 位
-                * (65535 / 255 = 257)。
-                *
-                * 当然，游离计数还是 8 位的。
-                */
-
-                /* 读一个 48 位像素。 */
-                sread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
-                line += sizeof(pixel_48bit_buffer);
-                /**/bytes_count += sizeof(pixel_48bit_buffer);
-                /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
-                set_24bit_pixel_color(
-                    &pixel,
-                    ( ( pixel_48bit_buffer[0] + 129 ) / 257 ),
-                    ( ( pixel_48bit_buffer[1] + 129 ) / 257 ),
-                    ( ( pixel_48bit_buffer[2] + 129 ) / 257 )
-                );
-            }
-            /* 写入重复像素。 */
-            while ( run_length_count > 0 ) {
-                /* 写这个像素。 */
-                swrite(&pixel, sizeof(pixel), 1, &( line_buffer[pixels_count] ));
-                run_length_count --;
-                pixels_count ++;
-            }
+        if ( header->cupsBitsPerColor == 8 ) {
+            sread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
+            line += sizeof(pixel_buffer);
+            // bytes_count += sizeof(pixel_buffer);
+            /* 将读到的 raster 像素转为 bitmap 像素。 */
+            set_24bit_pixel_color(
+                &pixel,
+                pixel_buffer[0],
+                pixel_buffer[1],
+                pixel_buffer[2]
+            );
         } else {
-            /* 连续写入模式，确定连续像素个数。 */
-            run_length_count = 257 - run_length_count;
-            /* 写入连续像素。 */
-            while ( run_length_count > 0 ) {
-                /* 读一个像素。 */
-                if ( header->cupsBitsPerColor == 8 ) {
-                    /* 读一个像素。 */
-                    sread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
-                    line += sizeof(pixel_buffer);
-                    bytes_count += sizeof(pixel_buffer);
-                    /* 将读到的 raster 像素转为 bitmap 像素。 */
-                    set_24bit_pixel_color(
-                        &pixel,
-                        pixel_buffer[0],
-                        pixel_buffer[1],
-                        pixel_buffer[2]
-                    );
-                } else {
-                    /* 读一个 48 位像素。 */
-                    sread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
-                    line += sizeof(pixel_48bit_buffer);
-                    bytes_count += sizeof(pixel_48bit_buffer);
-                    /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
-                    set_24bit_pixel_color(
-                        &pixel,
-                        ( ( pixel_48bit_buffer[0] + 129 ) / 257 ),
-                        ( ( pixel_48bit_buffer[1] + 129 ) / 257 ),
-                        ( ( pixel_48bit_buffer[2] + 129 ) / 257 )
-                    );
-                }
-                /* 写这个像素。 */
-                swrite(&pixel, sizeof(pixel), 1, &( line_buffer[pixels_count] ));
-                run_length_count --;
-                pixels_count ++;
-            }
+            /*
+            * 假设其他情况都是 16 位色深。通常是要做抖动处理的，但是这里只将 48 位 RGB
+            * 数据转为 24 位。
+            *
+            * 这个公式：
+            *     (*pixel + 129) / 257
+            * 将 16 位像素值截断为近似的 8 位值 ("+ 129") 并从 16 位转为 8 位
+            * (65535 / 255 = 257)。
+            *
+            * 当然，游离计数还是 8 位的。
+            */
+
+            /* 读一个 48 位像素。 */
+            sread(&pixel_48bit_buffer, sizeof(pixel_48bit_buffer), 1, line);
+            line += sizeof(pixel_48bit_buffer);
+            // bytes_count += sizeof(pixel_48bit_buffer);
+            /* 将读到的 48 位 raster 像素转为 bitmap 像素。 */
+            set_24bit_pixel_color(
+                &pixel,
+                ( ( pixel_48bit_buffer[0] + 129 ) / 257 ),
+                ( ( pixel_48bit_buffer[1] + 129 ) / 257 ),
+                ( ( pixel_48bit_buffer[2] + 129 ) / 257 )
+            );
         }
-    } while ( pixels_count < num_pixels );
-    /* 一行读完了，开始向流写入数据。 */
-    while ( line_repeating_count > 0 ) {
-        swrite(line_buffer, sizeof(bitmap_24bit_pixel) * num_pixels, 1, output_stream);
-        output_stream += num_pixels;
-        line_repeating_count --;
-    }
-
-    return num_lines;
-}
-
-/*
- * output_line_v3() - 输出一行的 raster 数据，但是 V3 版本，无压缩的。
- */
-static int
-output_line_v3(
-    cups_page_header2_t *header,
-    unsigned char       *line,
-    bitmap_24bit_pixel  *output_stream
-) {
-    const unsigned      num_pixels = header->cupsWidth;
-    unsigned            pixels_count = 0,
-                        bytes_count = 0;
-    uint8_t             byte_buffer;
-    uint8_t             pixel_buffer[3];
-    uint16_t            pixel_48bit_buffer[3];
-    bitmap_24bit_pixel  pixel;
-    bitmap_24bit_pixel  line_buffer[num_pixels];
-
-    do {
-        sread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
-        line += sizeof(pixel_buffer);
-        /**/bytes_count += sizeof(pixel_buffer);
-        /* 将读到的 raster 像素转为 bitmap 像素。 */
-        set_24bit_pixel_color(
-            &pixel,
-            pixel_buffer[0],
-            pixel_buffer[1],
-            pixel_buffer[2]
-        );
         swrite(&pixel, sizeof(pixel), 1, &( line_buffer[pixels_count] ));
-        pixels_count ++;
-    } while ( pixels_count < num_pixels );
+    } while ( pixels_count ++ < num_pixels );
     swrite(line_buffer, sizeof(bitmap_24bit_pixel) * num_pixels, 1, output_stream);
 
-    return FUNCTION_SUCCESS;
+    return 1;
+}
+
+static int
+output_line_bw(
+    cups_page_header2_t *header,
+    unsigned char       *line,
+    bitmap_8bit_pixel   *output_stream
+) {
+    const unsigned      num_pixels = header->cupsWidth;
+    unsigned            pixels_count = 0
+    // ,                   bytes_count = 0
+    ;
+    uint8_t             byte_buffer;
+    uint8_t             pixel_buffer;
+    uint16_t            pixel_16bit_buffer;
+    bitmap_8bit_pixel   pixel;
+    bitmap_8bit_pixel   line_buffer[num_pixels];
+
+    do {
+        if ( header->cupsBitsPerColor == 8 ) {
+            sread(&pixel_buffer, sizeof(pixel_buffer), 1, line);
+            line += sizeof(pixel_buffer);
+            // bytes_count += sizeof(pixel_buffer);
+            /* 将读到的 raster 像素转为 bitmap 像素。 */
+            set_8bit_pixel_color(&pixel, pixel_buffer);
+        } else {
+            /* 读一个 16 位 B/W 像素。 */
+            sread(&pixel_16bit_buffer, sizeof(pixel_16bit_buffer), 1, line);
+            line += sizeof(pixel_16bit_buffer);
+            // bytes_count += sizeof(pixel_16bit_buffer);
+            set_8bit_pixel_color(
+                &pixel,
+                (uint8_t) ( ( pixel_16bit_buffer + 129 ) / 257 )
+            );
+        }
+        swrite(&pixel, sizeof(pixel), 1, &( line_buffer[pixels_count] ));
+    } while ( pixels_count ++ < num_pixels );
+    swrite(line_buffer, sizeof(bitmap_8bit_pixel) * num_pixels, 1, output_stream);
+
+    return 1;
 }
 
 /*
