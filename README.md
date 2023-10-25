@@ -40,7 +40,9 @@ gcc -g `cups-config --cflags` ./bitmap.c ./rastertobitmapfile.c `cups-config --l
 
 1. 未在 Linux x86_64 以外的平台进行测试。
 
-2. 不支持非 8、16 位深，以及 RGB、SRGB、W 以外的色彩空间。
+2. 不支持非 8、16 的位深，以及非 RGB、SRGB、W 的色彩空间。
+
+3. 头文件代码用到了涉及 GCC 特性的语法，未在 GCC 以外的编译器进行测试，其他编译器能否通过编译尚不明确。
 
 ## 免责说明
 
@@ -78,10 +80,20 @@ gcc -g `cups-config --cflags` ./bitmap.c ./rastertobitmapfile.c `cups-config --l
 
 开始软件试作。目前所有的代码均为未完工状态。
 
+## 一些打印任务的测试结果
+
+（为便于上传而转换为 PNG 格式，实际输出仍为 BMP 格式）
+
+![](./img/231024-4.png)
+
+![](./img/ubuntu.png)
+
+![](./img/test-command.png)
+
 ---
 
 Leisquid Li
 
 2023.10.10
 
-更新于 程序员节, 2023
+更新于 23.10.25
