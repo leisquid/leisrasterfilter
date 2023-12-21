@@ -8,7 +8,7 @@
 
 一坨用来示范打印机的 CUPS Raster filter 工作流程以及将 CUPS Raster 格式转为 bitmap 格式的源文件。采用 GNU Affero General Public License (下称 AGPL 3.0) 开源。
 
-目前代码已经基本完成。您可以在遵循 [AGPL 3.0](./COPYING) 的协议下用这些代码做您任何想做的事情。
+目前代码已经基本完成。您可以在遵循 [AGPL 3.0](./COPYING.md) 的协议下用这些代码做您任何想做的事情。
 
 ## 编译
 
@@ -96,4 +96,4 @@ Leisquid Li
 
 2023.10.10
 
-更新于 23.10.25
+更新于 23.12.21
