@@ -1,3 +1,5 @@
+![GitHub License](https://img.shields.io/github/license/leisquid/leisrasterfilter)
+
 ![](./img/leisrasterfilter.png)
 
 ![](./img/cover.png)
